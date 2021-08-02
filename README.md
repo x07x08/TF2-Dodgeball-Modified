@@ -16,7 +16,7 @@ A modified version of the original YADB (Yet Another Dodgeball) plugin.
 ```
 
 # Commands
-For a list of commands, check the configuration file located in `addons/sourcemod/configs/dodgeball`.
+For a list of commands, check the configuration file located in [`addons/sourcemod/configs/dodgeball`](https://github.com/x07x08/TF2_Dodgeball_Modified/tree/main/TF2_Dodgeball_Modified/addons/sourcemod/configs/dodgeball).
 
 # Versions
 There are 2 versions : 
@@ -25,22 +25,30 @@ There are 2 versions :
 
 The only difference between them is how the rocket moves :
 
-- The OGF version uses `OnGameFrame()` which is called on every single frame of the server logic (or simply put, every tick of the server's tickrate), making the rocket turn more precisely.
+- The OGF version uses [`OnGameFrame()`](https://sm.alliedmods.net/new-api/sourcemod/OnGameFrame) which is called on every single frame of the server logic (or simply put, every tick of the server's tickrate), making the rocket turn more precisely.
 
 - The normal one uses the original method : a timer with an 0.1 seconds interval, it's less resource intensive but results in worse movement.
 
 **Use only one version!**
 
+# Features
+- Steal and delay prevention from updated YADBP.
+- "Keep direction" feature from Redux.
+- Steal distance CVar.
+- Additional parameters for internal commands.
+- Limits for speed and turnrate parameters.
+
 # Fixes
-1. Fixed some errors cause by invalid client indexes in timers.
-2. Fixed the wrong rocket class being rarely chosen.
+- Fixed some errors cause by invalid client indexes in timers.
+- Fixed the wrong rocket class being rarely chosen.
 
 # Known bugs
-1. Despite what the configuration file says, the `"on explode"` event is always triggered.
+- Despite what the configuration file says, the `"on explode"` event is triggered more than once.
 
 # Credits
-1. The original YADB plugin by Damizean : https://forums.alliedmods.net/showthread.php?t=134503
-2. The updated YADB plugin by bloody & lizzy : https://forums.alliedmods.net/showthread.php?p=2534328 or https://github.com/bloodgit/TF2-Dodgeball
-3. Dodgeball Redux by ClassicGuzzi : https://forums.alliedmods.net/showthread.php?p=2226728 or https://github.com/ClassicSpeed/dodgeball
-4. friagram for his flag airblast prevention : https://forums.alliedmods.net/showthread.php?t=219056
-5. BloodyNightmare and Mitchell for the original airblast prevention plugin : https://forums.alliedmods.net/showthread.php?t=233475
+1. The original YADB plugin by Damizean : [AlliedMods Link](https://forums.alliedmods.net/showthread.php?t=134503)
+2. The updated YADB plugin by bloody & lizzy : [AlliedMods Link](https://forums.alliedmods.net/showthread.php?p=2534328) or [GitHub Link](https://github.com/bloodgit/TF2-Dodgeball)
+3. Dodgeball Redux by ClassicGuzzi : [AlliedMods Link](https://forums.alliedmods.net/showthread.php?p=2226728) or [GitHub Link](https://github.com/ClassicSpeed/dodgeball)
+4. friagram for his flag airblast prevention : [AlliedMods Link](https://forums.alliedmods.net/showthread.php?t=219056)
+5. BloodyNightmare and Mitchell for the original airblast prevention plugin : [AlliedMods Link](https://forums.alliedmods.net/showthread.php?t=233475)
+6. Syntax converter batch by Dragokas : [AlliedMods Link](https://forums.alliedmods.net/showpost.php?p=2593268&postcount=54)
