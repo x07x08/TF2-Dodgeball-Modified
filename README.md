@@ -29,7 +29,7 @@ The only difference between them is how the rocket moves :
 
 - The normal one uses the original method : a timer with an 0.1 seconds interval, it's less resource intensive but results in worse movement.
 
-### Use only one version!
+**Use only one version!**
 
 # Fixes
 1. Fixed some errors cause by invalid client indexes in timers.
