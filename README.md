@@ -42,7 +42,7 @@ The only difference between them is how the rocket moves :
 - Limits for speed and turnrate parameters.
 - No damage on rockets if the target suicides / disconnects.
 - No damage on stolen rockets (toggleable with a CVar).
-- Commands to modify the movement parameters of a rocket on the fly.
+- Commands to modify the movement parameters of a rocket.
 
 # Fixes
 - Fixed some errors cause by invalid client indexes in timers.
