@@ -18,6 +18,9 @@ A modified version of the original YADB (Yet Another Dodgeball) plugin.
 # Commands
 For a list of commands, check the configuration file located in [`addons/sourcemod/configs/dodgeball`](https://github.com/x07x08/TF2_Dodgeball_Modified/tree/main/TF2_Dodgeball_Modified/addons/sourcemod/configs/dodgeball).
 
+# Nuke model
+By default, the plugin uses a custom model for the `"nuke"` rocket class. It can be found here : [AlliedMods Link](https://forums.alliedmods.net/showpost.php?s=8fa72450fa0c4941c927d01d2d6245c9&p=2180141&postcount=350)
+
 # Versions
 There are 2 versions : 
 * The normal one : `TF2_Dodgeball_Modified`
@@ -37,6 +40,9 @@ The only difference between them is how the rocket moves :
 - Steal distance CVar.
 - Additional parameters for internal commands.
 - Limits for speed and turnrate parameters.
+- No damage on rockets if the target suicides / disconnects.
+- No damage on stolen rockets (toggleable with a CVar).
+- Commands to modify the movement parameters of a rocket on the fly.
 
 # Fixes
 - Fixed some errors cause by invalid client indexes in timers.
