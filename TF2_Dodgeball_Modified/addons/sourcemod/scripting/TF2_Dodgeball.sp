@@ -19,7 +19,7 @@
 // ---- Plugin-related constants ---------------------------------------------------
 #define PLUGIN_NAME             "[TF2] Dodgeball"
 #define PLUGIN_AUTHOR           "Damizean, edited by x07x08 with features from YADBP 1.4.2 & Redux"
-#define PLUGIN_VERSION          "1.0"
+#define PLUGIN_VERSION          "1.1"
 #define PLUGIN_CONTACT          "https://github.com/x07x08/TF2_Dodgeball_Modified"
 #define CVAR_FLAGS              FCVAR_PLUGIN
 
@@ -78,7 +78,9 @@ enum RocketFlags
     RocketFlag_IsAnimated       = 1 << 15,
     RocketFlag_IsLimited        = 1 << 16,
     RocketFlag_IsSpeedLimited   = 1 << 17,
-    RocketFlag_KeepDirection    = 1 << 18
+    RocketFlag_KeepDirection    = 1 << 18,
+    RocketFlag_TeamlessHits     = 1 << 19,
+    RocketFlag_ResetBounces     = 1 << 20
 };
 
 enum RocketSound
@@ -277,7 +279,7 @@ public void OnPluginStart()
     g_hCvarStealPrevention = CreateConVar("tf_dodgeball_steal_prevention", "0", "Enable steal prevention?");
     g_hCvarStealPreventionNumber = CreateConVar("tf_dodgeball_sp_number", "3", "How many steals before you get slayed?");
     g_hCvarStealPreventionDamage = CreateConVar("tf_dodgeball_sp_damage", "0", "Reduce all damage on stolen rockets?");
-    g_hMaxBouncesConVar = CreateConVar("tf_dodgeball_rbmax", "2", "Max number of times a rocket will bounce.", FCVAR_NONE, true, 0.0, false);
+    g_hMaxBouncesConVar = CreateConVar("tf_dodgeball_rbmax", "10000", "Max number of times a rocket will bounce.", FCVAR_NONE, true, 0.0, false);
     g_hCvarStealDistance = CreateConVar("tf_dodgeball_sp_distance", "48.0", "The distance between players for a steal to register", FCVAR_NONE, true, 0.0, false);
     g_hCvarDelayPrevention = CreateConVar("tf_dodgeball_delay_prevention", "1", "Enable delay prevention?");
     g_hCvarDelayPreventionTime = CreateConVar("tf_dodgeball_dp_time", "5", "How much time (in seconds) before delay prevention activates?", FCVAR_NONE, true, 0.0, false);
@@ -369,6 +371,7 @@ void EnableDodgeBall()
         HookEvent("player_death", OnPlayerDeath, EventHookMode_Pre);
         HookEvent("post_inventory_application", OnPlayerInventory, EventHookMode_Post);
         HookEvent("teamplay_broadcast_audio", OnBroadcastAudio, EventHookMode_Pre);
+        HookEvent("object_deflected", OnObjectDeflected);
         
         // Precache sounds
         PrecacheSound(SOUND_DEFAULT_SPAWN, true);
@@ -441,6 +444,7 @@ void DisableDodgeBall()
         UnhookEvent("player_death", OnPlayerDeath, EventHookMode_Pre);
         UnhookEvent("post_inventory_application", OnPlayerInventory, EventHookMode_Post);
         UnhookEvent("teamplay_broadcast_audio", OnBroadcastAudio, EventHookMode_Pre);
+        UnhookEvent("object_deflected", OnObjectDeflected);
         
         // Execute enable config file
         char strCfgFile[64]; g_hCvarDisableCfgFile.GetString(strCfgFile, sizeof(strCfgFile));
@@ -707,6 +711,25 @@ public Action OnBroadcastAudio(Event hEvent, char[] strEventName, bool bDontBroa
     return Plugin_Continue;
 }
 
+public Action OnObjectDeflected(Event hEvent, char[] strEventName, bool bDontBroadcast)
+{
+	int iEntity = GetEventInt(hEvent, "object_entindex");
+	int iIndex  = FindRocketByEntity(iEntity);
+	
+	if (IsValidRocket(iIndex))
+	{
+		if (g_iRocketFlags[iIndex] & RocketFlag_IsNeutral)
+		{
+			SetEntProp(iEntity, Prop_Send, "m_iTeamNum", 1, 1);
+		}
+		
+		if (g_iRocketFlags[iIndex] & RocketFlag_ResetBounces)
+		{
+			g_nBounces[iEntity] = 0;
+		}
+	}
+}
+
 /* OnDodgeBallGameFrame()
 **
 ** Every tick of the Dodgeball logic.
@@ -784,7 +807,7 @@ public void CreateRocket(int iSpawnerEntity, int iSpawnerClass, int iTeam)
             // Setup rocket entity.
             SetEntPropEnt(iEntity, Prop_Send, "m_hOwnerEntity", 0);
             SetEntProp(iEntity,    Prop_Send, "m_bCritical",    (GetURandomFloatRange(0.0, 100.0) <= g_fRocketClassCritChance[iClass])? 1 : 0, 1);
-            SetEntProp(iEntity,    Prop_Send, "m_iTeamNum",     iTeam, 1);
+            SetEntProp(iEntity,    Prop_Send, "m_iTeamNum",     (TestFlags(iFlags, RocketFlag_IsNeutral))? 1 : iTeam, 1);
             SetEntProp(iEntity,    Prop_Send, "m_iDeflected",   1);
             TeleportEntity(iEntity, fPosition, fAngles, view_as<float>({0.0, 0.0, 0.0}));
             
@@ -970,7 +993,20 @@ void HomingRocketThink(int iIndex)
 				checkStolenRocket(iClient, iIndex);
 			}
         }
+        else
+        {
+            iClient = 0;
+        }
         
+        if ((iFlags & RocketFlag_IsNeutral) && iDeflectionCount == 1)
+        {
+            SetEntProp(iEntity, Prop_Send, "m_iTeamNum", 1, 1);
+        }
+        
+        if ((iFlags & RocketFlag_ResetBounces) && iDeflectionCount == 1)
+        {
+            g_nBounces[iEntity] = 0;
+        }
         // Set new target & deflection count
         iTarget = SelectTarget(iTargetTeam, iIndex);
         g_iRocketTarget[iIndex]             = EntIndexToEntRef(iTarget);
@@ -996,9 +1032,9 @@ void HomingRocketThink(int iIndex)
             SetEntDataFloat(iEntity, FindSendPropInfo("CTFProjectile_Rocket", "m_iDeflected") + 4, 0.0, true);
         }
         
-        if (!IsValidClient(iClient))
+        if (iFlags & RocketFlag_TeamlessHits)
         {
-            iClient = 0;
+            SetEntProp(iEntity, Prop_Send, "m_iTeamNum", 1, 1);
         }
         
         // Execute appropiate command
@@ -1032,12 +1068,12 @@ void HomingRocketThink(int iIndex)
             
             if(g_iRocketFlags[iIndex] & RocketFlag_IsLimited)
             {
-            	if (fTurnRate >= g_fRocketClassTurnRateLimit[iClass])
+                if (fTurnRate >= g_fRocketClassTurnRateLimit[iClass])
                 {
                     fTurnRate = g_fRocketClassTurnRateLimit[iClass];
                 }
             }
-
+            
             // Smoothly change the orientation to the new one.
             LerpVectors(g_fRocketDirection[iIndex], fDirectionToTarget, g_fRocketDirection[iIndex], fTurnRate);
         }
@@ -1331,6 +1367,9 @@ void RegisterCommands()
     RegAdminCmd("tf_dodgeball_rocketturnrate", CmdChangeTurnRate, ADMFLAG_CONFIG, "Change rocket turnrate parameters.");
     RegAdminCmd("tf_dodgeball_rocketelevation", CmdChangeElevation, ADMFLAG_CONFIG, "Change rocket elevation parameters.");
     RegAdminCmd("tf_dodgeball_spawners", CmdChangeSpawners, ADMFLAG_CONFIG, "Change the spawners' settings.");
+    RegAdminCmd("tf_dodgeball_refresh", CmdRefresh, ADMFLAG_CONFIG, "Refresh the configuration.");
+    RegAdminCmd("tf_dodgeball_destroyrockets", CmdDestroyRockets, ADMFLAG_CONFIG, "Destroy all current rockets.");
+    RegAdminCmd("tf_dodgeball_rocketotherparams", CmdOtherParams, ADMFLAG_CONFIG, "Change other rocket parameters.");
 }
 
 /* CmdExplosion()
@@ -1360,7 +1399,7 @@ public Action CmdExplosion(int iArgs)
     }
     else
     {
-        PrintToServer("%s", g_bEnabled ? "Usage: tf_dodgeball_explosion <client index>" : "Command disabled.");
+        PrintToServer("%s", g_bEnabled ? "Usage: tf_dodgeball_explosion <client index>" : "Command disabled");
     }
     
     return Plugin_Handled;
@@ -1447,7 +1486,10 @@ public Action CmdChangeSpeed(int iClient, int iArgs)
 		
 		if (fRocketSpeedLimit == 0)
 		{
-			g_iRocketClassFlags[iIndex] &= ~RocketFlag_IsSpeedLimited;
+			if (g_iRocketClassFlags[iIndex] & RocketFlag_IsSpeedLimited)
+			{
+				g_iRocketClassFlags[iIndex] &= ~RocketFlag_IsSpeedLimited;
+			}
 		}
 		else if (fRocketSpeedLimit == -1)
 		{
@@ -1464,7 +1506,11 @@ public Action CmdChangeSpeed(int iClient, int iArgs)
 		}
 		else
 		{
-			g_iRocketClassFlags[iIndex]      |= RocketFlag_IsSpeedLimited;
+			if (!(g_iRocketClassFlags[iIndex] & RocketFlag_IsSpeedLimited))
+			{
+				g_iRocketClassFlags[iIndex] |= RocketFlag_IsSpeedLimited;
+			}
+			
 			g_fRocketClassSpeedLimit[iIndex]  = fRocketSpeedLimit;
 		}
 		
@@ -1497,7 +1543,10 @@ public Action CmdChangeTurnRate(int iClient, int iArgs)
 		
 		if (fRocketTurnRateLimit == 0)
 		{
-			g_iRocketClassFlags[iIndex] &= ~RocketFlag_IsLimited;
+			if (g_iRocketClassFlags[iIndex] & RocketFlag_IsLimited)
+			{
+				g_iRocketClassFlags[iIndex] &= ~RocketFlag_IsLimited;
+			}
 		}
 		else if (fRocketTurnRateLimit == -1)
 		{
@@ -1514,7 +1563,11 @@ public Action CmdChangeTurnRate(int iClient, int iArgs)
 		}
 		else
 		{
-			g_iRocketClassFlags[iIndex]         |= RocketFlag_IsLimited;
+			if (!(g_iRocketClassFlags[iIndex] & RocketFlag_IsLimited))
+			{
+				g_iRocketClassFlags[iIndex] |= RocketFlag_IsLimited;
+			}
+			
 			g_fRocketClassTurnRateLimit[iIndex]  = fRocketTurnRateLimit;
 		}
 		
@@ -1546,8 +1599,11 @@ public Action CmdChangeElevation(int iClient, int iArgs)
 		
 		if (fRocketElevationLimit == 0)
 		{
-			g_iRocketClassFlags[iIndex] &= ~RocketFlag_ElevateOnDeflect;
-			g_iRocketFlags[iIndex]      &= ~RocketFlag_Elevating;
+			if (g_iRocketClassFlags[iIndex] & RocketFlag_ElevateOnDeflect)
+			{
+				g_iRocketClassFlags[iIndex] &= ~RocketFlag_ElevateOnDeflect;
+				g_iRocketFlags[iIndex]      &= ~RocketFlag_Elevating;
+			}
 		}
 		else if (fRocketElevationLimit == -1)
 		{
@@ -1565,7 +1621,11 @@ public Action CmdChangeElevation(int iClient, int iArgs)
 		}
 		else
 		{
-			g_iRocketClassFlags[iIndex]         |= RocketFlag_ElevateOnDeflect;
+			if (!(g_iRocketClassFlags[iIndex] & RocketFlag_ElevateOnDeflect))
+			{
+				g_iRocketClassFlags[iIndex] |= RocketFlag_ElevateOnDeflect;
+			}
+			
 			g_fRocketClassElevationLimit[iIndex] = fRocketElevationLimit;
 		}
 		
@@ -1625,6 +1685,184 @@ public Action CmdChangeSpawners(int iClient, int iArgs)
 	return Plugin_Handled;
 }
 
+public Action CmdRefresh(int iClient, int iArgs)
+{
+	if (!iArgs && g_bEnabled)
+	{
+		// Clean up everything
+		DestroyRocketClasses();
+		DestroySpawners();
+		// Then reinitialize
+		char strMapName[64]; GetCurrentMap(strMapName, sizeof(strMapName));
+		char strMapFile[PLATFORM_MAX_PATH]; Format(strMapFile, sizeof(strMapFile), "%s.cfg", strMapName);
+		ParseConfigurations();
+		ParseConfigurations(strMapFile);
+		PrintToChatAll("\x05%N\01 refreshed the \x05dodgeball configs\01.", iClient);
+	}
+	else
+	{
+		ReplyToCommand(iClient, "%s", g_bEnabled ? "Usage: tf_dodgeball_refresh" : "Command Disabled");
+	}
+	
+	return Plugin_Handled;
+}
+
+public Action CmdDestroyRockets(int iClient, int iArgs)
+{
+	if (!iArgs && g_bEnabled)
+	{
+		DestroyRockets();
+	}
+	else
+	{
+		ReplyToCommand(iClient, "%s", g_bEnabled ? "Usage: tf_dodgeball_destroyrockets" : "Command Disabled");
+	}
+	
+	return Plugin_Handled;
+}
+
+public Action CmdOtherParams(int iClient, int iArgs)
+{
+	if (iArgs == 5 && g_bEnabled)
+	{
+		char strBuffer[8]; int iIndex, bIsNeutral, bKeepDirection, bTeamlessHits, bResetBounces;
+		GetCmdArg(1, strBuffer, sizeof(strBuffer)); iIndex         = StringToInt(strBuffer);
+		GetCmdArg(2, strBuffer, sizeof(strBuffer)); bIsNeutral     = StringToInt(strBuffer);
+		GetCmdArg(3, strBuffer, sizeof(strBuffer)); bKeepDirection = StringToInt(strBuffer);
+		GetCmdArg(4, strBuffer, sizeof(strBuffer)); bTeamlessHits  = StringToInt(strBuffer);
+		GetCmdArg(5, strBuffer, sizeof(strBuffer)); bResetBounces  = StringToInt(strBuffer);
+		
+		if ((iIndex >= g_iRocketClassCount) || (iIndex < 0))
+		{
+			return Plugin_Handled;
+		}
+		
+		switch (bIsNeutral)
+		{
+			case -1:
+			{
+				if ((g_iSavedRocketClassFlags[iIndex] & RocketFlag_IsNeutral) && !(g_iRocketClassFlags[iIndex] & RocketFlag_IsNeutral))
+				{
+					g_iRocketClassFlags[iIndex] |= RocketFlag_IsNeutral;
+				}
+				else if (!(g_iSavedRocketClassFlags[iIndex] & RocketFlag_IsNeutral) && (g_iRocketClassFlags[iIndex] & RocketFlag_IsNeutral))
+				{
+					g_iRocketClassFlags[iIndex] &= ~RocketFlag_IsNeutral;
+				}
+			}
+			case 0:
+			{
+				if (g_iRocketClassFlags[iIndex] & RocketFlag_IsNeutral)
+				{
+					g_iRocketClassFlags[iIndex] &= ~RocketFlag_IsNeutral;
+				}
+			}
+			case 1:
+			{
+				if (!(g_iRocketClassFlags[iIndex] & RocketFlag_IsNeutral))
+				{
+					g_iRocketClassFlags[iIndex] |= RocketFlag_IsNeutral;
+				}
+			}
+		}
+		
+		switch (bKeepDirection)
+		{
+			case -1:
+			{
+				if ((g_iSavedRocketClassFlags[iIndex] & RocketFlag_KeepDirection) && !(g_iRocketClassFlags[iIndex] & RocketFlag_KeepDirection))
+				{
+					g_iRocketClassFlags[iIndex] |= RocketFlag_KeepDirection;
+				}
+				else if (!(g_iSavedRocketClassFlags[iIndex] & RocketFlag_KeepDirection) && (g_iRocketClassFlags[iIndex] & RocketFlag_KeepDirection))
+				{
+					g_iRocketClassFlags[iIndex] &= ~RocketFlag_KeepDirection;
+				}
+			}
+			case 0:
+			{
+				if (g_iRocketClassFlags[iIndex] & RocketFlag_KeepDirection)
+				{
+					g_iRocketClassFlags[iIndex] &= ~RocketFlag_KeepDirection;
+				}
+			}
+			case 1:
+			{
+				if (!(g_iRocketClassFlags[iIndex] & RocketFlag_KeepDirection))
+				{
+					g_iRocketClassFlags[iIndex] |= RocketFlag_KeepDirection;
+				}
+			}
+		}
+		
+		switch (bTeamlessHits)
+		{
+			case -1:
+			{
+				if ((g_iSavedRocketClassFlags[iIndex] & RocketFlag_TeamlessHits) && !(g_iRocketClassFlags[iIndex] & RocketFlag_TeamlessHits))
+				{
+					g_iRocketClassFlags[iIndex] |= RocketFlag_TeamlessHits;
+				}
+				else if (!(g_iSavedRocketClassFlags[iIndex] & RocketFlag_TeamlessHits) && (g_iRocketClassFlags[iIndex] & RocketFlag_TeamlessHits))
+				{
+					g_iRocketClassFlags[iIndex] &= ~RocketFlag_TeamlessHits;
+				}
+			}
+			case 0:
+			{
+				if (g_iRocketClassFlags[iIndex] & RocketFlag_TeamlessHits)
+				{
+					g_iRocketClassFlags[iIndex] &= ~RocketFlag_TeamlessHits;
+				}
+			}
+			case 1:
+			{
+				if (!(g_iRocketClassFlags[iIndex] & RocketFlag_TeamlessHits))
+				{
+					g_iRocketClassFlags[iIndex] |= RocketFlag_TeamlessHits;
+				}
+			}
+		}
+		
+		switch (bResetBounces)
+		{
+			case -1:
+			{
+				if ((g_iSavedRocketClassFlags[iIndex] & RocketFlag_ResetBounces) && !(g_iRocketClassFlags[iIndex] & RocketFlag_ResetBounces))
+				{
+					g_iRocketClassFlags[iIndex] |= RocketFlag_ResetBounces;
+				}
+				else if (!(g_iSavedRocketClassFlags[iIndex] & RocketFlag_ResetBounces) && (g_iRocketClassFlags[iIndex] & RocketFlag_ResetBounces))
+				{
+					g_iRocketClassFlags[iIndex] &= ~RocketFlag_ResetBounces;
+				}
+			}
+			case 0:
+			{
+				if (g_iRocketClassFlags[iIndex] & RocketFlag_ResetBounces)
+				{
+					g_iRocketClassFlags[iIndex] &= ~RocketFlag_ResetBounces;
+				}
+			}
+			case 1:
+			{
+				if (!(g_iRocketClassFlags[iIndex] & RocketFlag_ResetBounces))
+				{
+					g_iRocketClassFlags[iIndex] |= RocketFlag_ResetBounces;
+				}
+			}
+		}
+		
+		DestroyRockets();
+	}
+	else
+	{
+		ReplyToCommand(iClient, "%s", g_bEnabled ? "Usage: tf_dodgeball_rocketotherparams <rocket class index> <neutral rocket 0/1> <keep direction 0/1> <teamless hits 0/1> <reset bounces 0/1>" : "Command Disabled");
+	}
+	
+	return Plugin_Handled;
+}
+
 /* ExecuteCommands()
 **
 ** The core of the plugin's event system, unpacks and correctly formats the
@@ -1646,7 +1884,6 @@ void ExecuteCommands(DataPack hDataPack, int iClass, int iRocket, int iOwner, in
         Format(strBuffer, sizeof(strBuffer), "%.2f", fSpeed);               ReplaceString(strCmd, sizeof(strCmd), "@speed", strBuffer);
         Format(strBuffer, sizeof(strBuffer), "%i", iNumDeflections);        ReplaceString(strCmd, sizeof(strCmd), "@deflections", strBuffer);
         Format(strBuffer, sizeof(strBuffer), "%i", RoundFloat(fMphSpeed));  ReplaceString(strCmd, sizeof(strCmd), "@mphspeed", strBuffer);
-        Format(strBuffer, sizeof(strBuffer), "%N", iLastDead);              ReplaceString(strCmd, sizeof(strCmd), "@lastdeadname", strBuffer);
         Format(strBuffer, sizeof(strBuffer), "%.2f", fMphSpeed / 0.042614); ReplaceString(strCmd, sizeof(strCmd), "@nocapspeed", strBuffer);
         ServerCommand(strCmd);
     }
@@ -1784,6 +2021,8 @@ void ParseClasses(KeyValues kvConfig)
         if (kvConfig.GetNum("limit turn rate", 0) == 1)    iFlags |= RocketFlag_IsLimited;
         if (kvConfig.GetNum("limit speed", 0) == 1)        iFlags |= RocketFlag_IsSpeedLimited;
         if (kvConfig.GetNum("keep direction", 0) == 1)     iFlags |= RocketFlag_KeepDirection;
+        if (kvConfig.GetNum("teamless deflects", 0) == 1)  iFlags |= RocketFlag_TeamlessHits;
+        if (kvConfig.GetNum("reset bounces", 0) == 1)      iFlags |= RocketFlag_ResetBounces;
         
         // Movement parameters
         g_fRocketClassDamage[iIndex]            = kvConfig.GetFloat("damage");
@@ -1995,11 +2234,13 @@ stock int SelectTarget(int iTeam, int iRocket = -1)
     float fRocketDirection[3];
     float fWeight;
     bool bUseRocket;
+    int iOwner = -1;
     
     if (iRocket != -1)
     {
         int iClass = g_iRocketClass[iRocket];
         int iEntity = EntRefToEntIndex(g_iRocketEntity[iRocket]);
+        iOwner = GetEntPropEnt(iEntity, Prop_Send, "m_hOwnerEntity");
         
         GetEntPropVector(iEntity, Prop_Send, "m_vecOrigin", fRocketPosition);
         CopyVectors(g_fRocketDirection[iRocket], fRocketDirection);
@@ -2013,6 +2254,7 @@ stock int SelectTarget(int iTeam, int iRocket = -1)
         // If the client isn't connected, skip.
         if (!IsValidClient(iClient, true)) continue;
         if (iTeam && GetClientTeam(iClient) != iTeam) continue;
+        if (iClient == iOwner) continue;
         
         // Determine if this client should be the target.
         float fNewWeight = GetURandomFloatRange(0.0, 100.0);
