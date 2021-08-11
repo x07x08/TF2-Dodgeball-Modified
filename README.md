@@ -47,7 +47,7 @@ The OGF version also includes a few more rocket settings that are **not** presen
 - Commands to modify the movement parameters of a rocket.
 
 # Fixes
-- Fixed some errors cause by invalid client indexes in timers (mostly in the normal version).
+- Fixed some errors caused by invalid client indexes in timers.
 - Fixed the wrong rocket class being rarely chosen.
 - Fixed neutral rockets.
 
