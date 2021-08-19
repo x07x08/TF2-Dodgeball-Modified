@@ -489,13 +489,13 @@ public Action OnRoundStart(Event hEvent, char[] strEventName, bool bDontBroadcas
     }
     
     if (g_hCvarStealPrevention.BoolValue)
-	{
-		for (int i = 0; i <= MaxClients; i++)
-		{
-			bStealArray[i].stoleRocket = false;
-			bStealArray[i].rocketsStolen = 0;
-		}
-	}
+    {
+        for (int i = 0; i <= MaxClients; i++)
+        {
+            bStealArray[i].stoleRocket = false;
+            bStealArray[i].rocketsStolen = 0;
+        }
+    }
 }
 
 /* OnSetupFinished()
@@ -594,10 +594,10 @@ public Action OnPlayerDeath(Event hEvent, char[] strEventName, bool bDontBroadca
     if (IsValidClient(iVictim))
     {
         if (g_hCvarStealPrevention.BoolValue)
-		{
-			bStealArray[iVictim].stoleRocket = false;
-			bStealArray[iVictim].rocketsStolen = 0;
-		}
+        {
+            bStealArray[iVictim].stoleRocket = false;
+            bStealArray[iVictim].rocketsStolen = 0;
+        }
         
         g_iLastDeadClient = iVictim;
         g_iLastDeadTeam = GetClientTeam(iVictim);
@@ -989,9 +989,9 @@ void HomingRocketThink(int iIndex)
             CopyVectors(fDirection, g_fRocketDirection[iIndex]);
             UpdateRocketSkin(iEntity, iTeam, TestFlags(iFlags, RocketFlag_IsNeutral));
             if (g_hCvarStealPrevention.BoolValue)
-			{
-				checkStolenRocket(iClient, iIndex);
-			}
+            {
+                checkStolenRocket(iClient, iIndex);
+            }
         }
         else
         {
@@ -1086,9 +1086,9 @@ void HomingRocketThink(int iIndex)
         }
         
         if (g_hCvarDelayPrevention.BoolValue)
-		{
-			checkRoundDelays(iIndex);
-		}
+        {
+            checkRoundDelays(iIndex);
+        }
     }
     
     // Done
