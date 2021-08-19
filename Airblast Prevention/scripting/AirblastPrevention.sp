@@ -1,3 +1,4 @@
+#pragma semicolon 1
 #pragma newdecls required
 
 #include <sourcemod>
@@ -19,7 +20,7 @@ public void OnPluginStart()
 	g_hCvarPreventionEnabled = CreateConVar("tf_dodgeball_airblast", "1", "Enable the plugin?", _, true, 0.0, true, 1.0);
 	RegConsoleCmd("sm_ab", CmdAirblastPrevention, "Toggles push prevention.");
 	HookEvent("player_spawn", OnPlayerSpawn);
-	g_hCvarPreventionEnabled.AddChangeHook(CvarHook)
+	g_hCvarPreventionEnabled.AddChangeHook(CvarHook);
 }
 
 public Action OnPlayerSpawn(Event hEvent, char[] strEventName, bool bDontBroadcast)
