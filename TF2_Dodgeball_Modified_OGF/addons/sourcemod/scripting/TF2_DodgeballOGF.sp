@@ -19,27 +19,19 @@
 // ---- Plugin-related constants ---------------------------------------------------
 #define PLUGIN_NAME             "[TF2] Dodgeball"
 #define PLUGIN_AUTHOR           "Damizean, edited by x07x08 with features from YADBP 1.4.2 & Redux"
-#define PLUGIN_VERSION          "1.2"
+#define PLUGIN_VERSION          "1.3 OGF"
 #define PLUGIN_CONTACT          "https://github.com/x07x08/TF2_Dodgeball_Modified"
 #define CVAR_FLAGS              FCVAR_PLUGIN
 
 // ---- General settings -----------------------------------------------------------
-#define FPS_LOGIC_INTERVAL      0.1
+#define FPS_LOGIC_RATE          20.0
+#define FPS_LOGIC_INTERVAL      1.0 / FPS_LOGIC_RATE
 
 // ---- Maximum structure sizes ----------------------------------------------------
 #define MAX_ROCKETS             100
 #define MAX_ROCKET_CLASSES      50
 #define MAX_SPAWNER_CLASSES     50
 #define MAX_SPAWN_POINTS        100
-
-// ---- Asherkin's RocketBounce Stuff ----------------------------------------------
-#define MAX_EDICT_BITS  11
-#define MAX_EDICTS      (1 << MAX_EDICT_BITS)
-
-int g_nBounces[MAX_EDICTS];
-
-ConVar g_hMaxBouncesConVar;
-int g_config_iMaxBounces = 2;
 
 // ---- Flags and types constants --------------------------------------------------
 enum Musics
@@ -189,6 +181,7 @@ bool        g_bIsRocketStolen           [MAX_ROCKETS];
 bool        g_bPreventingDelay          [MAX_ROCKETS];
 float       g_fLastSpawnTime            [MAX_ROCKETS];
 bool        g_bIsRocketDraggable        [MAX_ROCKETS];
+int         g_iRocketBounces            [MAX_ROCKETS];
 
 // Classes
 char           g_strRocketClassName           [MAX_ROCKET_CLASSES][16];
@@ -225,6 +218,8 @@ StringMap      g_hRocketClassTrie;
 int            g_iRocketClassCount;
 float          g_fSavedParameters             [MAX_ROCKET_CLASSES][10];
 RocketFlags    g_iSavedRocketClassFlags       [MAX_ROCKET_CLASSES];
+int            g_iRocketClassMaxBounces       [MAX_ROCKET_CLASSES];
+int            g_iRocketClassSavedMaxBounces  [MAX_ROCKET_CLASSES];
 
 // Spawner classes
 char      g_strSpawnersName        [MAX_SPAWNER_CLASSES][32];
@@ -286,13 +281,11 @@ public void OnPluginStart()
     g_hCvarStealPrevention = CreateConVar("tf_dodgeball_steal_prevention", "0", "Enable steal prevention?");
     g_hCvarStealPreventionNumber = CreateConVar("tf_dodgeball_sp_number", "3", "How many steals before you get slayed?");
     g_hCvarStealPreventionDamage = CreateConVar("tf_dodgeball_sp_damage", "0", "Reduce all damage on stolen rockets?");
-    g_hMaxBouncesConVar = CreateConVar("tf_dodgeball_rbmax", "10000", "Max number of times a rocket will bounce.", FCVAR_NONE, true, 0.0, false);
     g_hCvarStealDistance = CreateConVar("tf_dodgeball_sp_distance", "48.0", "The distance between players for a steal to register", FCVAR_NONE, true, 0.0, false);
     g_hCvarDelayPrevention = CreateConVar("tf_dodgeball_delay_prevention", "1", "Enable delay prevention?");
     g_hCvarDelayPreventionTime = CreateConVar("tf_dodgeball_dp_time", "5", "How much time (in seconds) before delay prevention activates?", FCVAR_NONE, true, 0.0, false);
     g_hCvarDelayPreventionSpeedup = CreateConVar("tf_dodgeball_dp_speedup", "100", "How much speed (in hammer units per second) should the rocket gain when delayed?", FCVAR_NONE, true, 0.0, false);
     
-    g_hMaxBouncesConVar.AddChangeHook(tf2dodgeball_cvarhook);
     g_hCvarStealDistance.AddChangeHook(tf2dodgeball_cvarhook);
     
     g_hRocketClassTrie = new StringMap();
@@ -725,7 +718,7 @@ public Action OnObjectDeflected(Event hEvent, char[] strEventName, bool bDontBro
 	int iEntity = GetEventInt(hEvent, "object_entindex");
 	int iIndex  = FindRocketByEntity(iEntity);
 	
-	if (IsValidRocket(iIndex))
+	if (iIndex != -1)
 	{
 		if (g_iRocketFlags[iIndex] & RocketFlag_IsNeutral)
 		{
@@ -734,7 +727,7 @@ public Action OnObjectDeflected(Event hEvent, char[] strEventName, bool bDontBro
 		
 		if (g_iRocketFlags[iIndex] & RocketFlag_ResetBounces)
 		{
-			g_nBounces[iEntity] = 0;
+			g_iRocketBounces[iIndex] = 0;
 		}
 	}
 }
@@ -849,6 +842,8 @@ public void CreateRocket(int iSpawnerEntity, int iSpawnerClass, int iTeam)
             g_iRocketAltDeflections[iIndex]     = 0;
             g_bIsRocketDraggable[iIndex]        = false;
             g_bIsRocketBouncing[iIndex]         = false;
+            g_bPreventingDelay[iIndex]          = false;
+            g_iRocketBounces[iIndex]            = 0;
             g_fRocketLastDeflectionTime[iIndex] = GetGameTime();
             g_fRocketLastBeepTime[iIndex]       = GetGameTime();
             g_fRocketSpeed[iIndex]              = CalculateRocketSpeed(iClass, fModifier);
@@ -880,6 +875,8 @@ public void CreateRocket(int iSpawnerEntity, int iSpawnerClass, int iTeam)
             g_iRocketsFired++;
             g_fLastSpawnTime[iIndex] = GetGameTime();
             g_fNextSpawnTime = GetGameTime() + g_fSpawnersInterval[iSpawnerClass];
+            
+            SDKHook(iEntity, SDKHook_StartTouch, OnStartTouch);
         }
     }
 }
@@ -1051,7 +1048,7 @@ void HomingRocketThink(int iIndex)
                 }
                 else
                 {
-                	iClient = 0;
+                    iClient = 0;
                 }
                 
                 if ((iFlags & RocketFlag_IsNeutral) && iDeflectionCount == 1)
@@ -1061,7 +1058,7 @@ void HomingRocketThink(int iIndex)
                 
                 if ((iFlags & RocketFlag_ResetBounces) && iDeflectionCount == 1)
                 {
-                    g_nBounces[iEntity] = 0;
+                    g_iRocketBounces[iIndex] = 0;
                 }
                 // Set new target & deflection count
                 iTarget = SelectTarget(iTargetTeam, iIndex);
@@ -1111,6 +1108,7 @@ void HomingRocketThink(int iIndex)
                     {
                         if (g_fRocketDirection[iIndex][2] < g_fRocketClassElevationLimit[iClass])
                         {
+                            g_fRocketDirection[iIndex][2] = FMin(g_fRocketDirection[iIndex][2] + g_fRocketClassElevationRate[iClass] / g_fTickModifier, g_fRocketClassElevationLimit[iClass]);
                             fDirectionToTarget[2] = g_fRocketDirection[iIndex][2];
                         }
                         else
@@ -1151,18 +1149,6 @@ void RocketOtherThink(int iIndex)
     
     if (!(iDeflectionCount > g_iRocketDeflections[iIndex]))
     {
-        if ((GetGameTime() - g_fRocketLastDeflectionTime[iIndex]) >= g_fRocketClassControlDelay[iClass])
-        {
-            // Elevate the rocket after a deflection (if it's enabled on the class definition, of course.)
-            if (g_iRocketFlags[iIndex] & RocketFlag_Elevating)
-            {
-                if (g_fRocketDirection[iIndex][2] < g_fRocketClassElevationLimit[iClass])
-                {
-                    g_fRocketDirection[iIndex][2] = FMin(g_fRocketDirection[iIndex][2] + g_fRocketClassElevationRate[iClass], g_fRocketClassElevationLimit[iClass]);
-                }
-            }
-        }
-        
         if ((GetGameTime() - g_fRocketLastBeepTime[iIndex]) >= g_fRocketClassBeepInterval[iClass])
         {
             EmitRocketSound(RocketSound_Beep, iClass, iEntity, iTarget, iFlags);
@@ -1598,9 +1584,10 @@ public Action CmdChangeSpeed(int iClient, int iArgs)
 			g_fRocketClassSpeedLimit[iIndex]  = fRocketSpeedLimit;
 		}
 		
-		DestroyRockets();
 		g_fRocketClassSpeed[iIndex]          = fRocketSpeed == -1 ? g_fSavedParameters[iIndex][0] : fRocketSpeed;
 		g_fRocketClassSpeedIncrement[iIndex] = fRocketSpeedIncrement == -1 ? g_fSavedParameters[iIndex][1] : fRocketSpeedIncrement;
+		
+		DestroyRockets();
 	}
 	else
 	{
@@ -1655,9 +1642,10 @@ public Action CmdChangeTurnRate(int iClient, int iArgs)
 			g_fRocketClassTurnRateLimit[iIndex]  = fRocketTurnRateLimit;
 		}
 		
-		DestroyRockets();
 		g_fRocketClassTurnRate[iIndex]          = fRocketTurnRate == -1 ? g_fSavedParameters[iIndex][3] : fRocketTurnRate;
 		g_fRocketClassTurnRateIncrement[iIndex] = fRocketTurnRateIncrement == -1 ? g_fSavedParameters[iIndex][4] : fRocketTurnRateIncrement;
+		
+		DestroyRockets();
 	}
 	else
 	{
@@ -1713,8 +1701,9 @@ public Action CmdChangeElevation(int iClient, int iArgs)
 			g_fRocketClassElevationLimit[iIndex] = fRocketElevationLimit;
 		}
 		
-		DestroyRockets();
 		g_fRocketClassElevationRate[iIndex] = fRocketElevationRate == -1 ? g_fSavedParameters[iIndex][6] : fRocketElevationRate;
+		
+		DestroyRockets();
 	}
 	else
 	{
@@ -1807,14 +1796,15 @@ public Action CmdDestroyRockets(int iClient, int iArgs)
 
 public Action CmdOtherParams(int iClient, int iArgs)
 {
-	if (iArgs == 5 && g_bEnabled)
+	if (iArgs == 6 && g_bEnabled)
 	{
-		char strBuffer[8]; int iIndex, bIsNeutral, bKeepDirection, bTeamlessHits, bResetBounces;
+		char strBuffer[8]; int iIndex, bIsNeutral, bKeepDirection, bTeamlessHits, bResetBounces, iMaxBounces;
 		GetCmdArg(1, strBuffer, sizeof(strBuffer)); iIndex         = StringToInt(strBuffer);
 		GetCmdArg(2, strBuffer, sizeof(strBuffer)); bIsNeutral     = StringToInt(strBuffer);
 		GetCmdArg(3, strBuffer, sizeof(strBuffer)); bKeepDirection = StringToInt(strBuffer);
 		GetCmdArg(4, strBuffer, sizeof(strBuffer)); bTeamlessHits  = StringToInt(strBuffer);
 		GetCmdArg(5, strBuffer, sizeof(strBuffer)); bResetBounces  = StringToInt(strBuffer);
+		GetCmdArg(6, strBuffer, sizeof(strBuffer)); iMaxBounces    = StringToInt(strBuffer);
 		
 		if ((iIndex >= g_iRocketClassCount) || (iIndex < 0))
 		{
@@ -1937,11 +1927,13 @@ public Action CmdOtherParams(int iClient, int iArgs)
 			}
 		}
 		
+		g_iRocketClassMaxBounces[iIndex] = iMaxBounces == -1 ? g_iRocketClassSavedMaxBounces[iIndex] : iMaxBounces;
+		
 		DestroyRockets();
 	}
 	else
 	{
-		ReplyToCommand(iClient, "%s", g_bEnabled ? "Usage: tf_dodgeball_rocketotherparams <rocket class index> <neutral rocket 0/1> <keep direction 0/1> <teamless hits 0/1> <reset bounces 0/1>" : "Command Disabled");
+		ReplyToCommand(iClient, "%s", g_bEnabled ? "Usage: tf_dodgeball_rocketotherparams <rocket class index> <neutral rocket 0/1> <keep direction 0/1> <teamless hits 0/1> <reset bounces 0/1> <max bounces>" : "Command Disabled");
 	}
 	
 	return Plugin_Handled;
@@ -1952,10 +1944,10 @@ public Action CmdDragParams(int iClient, int iArgs)
 	if (iArgs == 4 && g_bEnabled)
 	{
 		char strBuffer[8]; int iIndex; float fRocketDragTimeMin, fRocketDragTimeMax; int bRocketNoBounceDrags;
-		GetCmdArg(1, strBuffer, sizeof(strBuffer)); iIndex                = StringToInt(strBuffer);
-		GetCmdArg(2, strBuffer, sizeof(strBuffer)); fRocketDragTimeMin    = StringToFloat(strBuffer);
-		GetCmdArg(3, strBuffer, sizeof(strBuffer)); fRocketDragTimeMax    = StringToFloat(strBuffer);
-		GetCmdArg(4, strBuffer, sizeof(strBuffer)); bRocketNoBounceDrags  = StringToInt(strBuffer);
+		GetCmdArg(1, strBuffer, sizeof(strBuffer)); iIndex               = StringToInt(strBuffer);
+		GetCmdArg(2, strBuffer, sizeof(strBuffer)); fRocketDragTimeMin   = StringToFloat(strBuffer);
+		GetCmdArg(3, strBuffer, sizeof(strBuffer)); fRocketDragTimeMax   = StringToFloat(strBuffer);
+		GetCmdArg(4, strBuffer, sizeof(strBuffer)); bRocketNoBounceDrags = StringToInt(strBuffer);
 		
 		if ((iIndex >= g_iRocketClassCount) || (iIndex < 0))
 		{
@@ -1991,13 +1983,14 @@ public Action CmdDragParams(int iClient, int iArgs)
 			}
 		}
 		
-		DestroyRockets();
 		g_fRocketClassDragTimeMin[iIndex] = fRocketDragTimeMin == -1 ? g_fSavedParameters[iIndex][8] : fRocketDragTimeMin;
 		g_fRocketClassDragTimeMax[iIndex] = fRocketDragTimeMax == -1 ? g_fSavedParameters[iIndex][9] : fRocketDragTimeMax;
+		
+		DestroyRockets();
 	}
 	else
 	{
-		ReplyToCommand(iClient, "%s", g_bEnabled ? "Usage: tf_dodgeball_rocketdragparams <rocket class index> <min drag time> <max drag time> <no bounce deflects 0/1>" : "Command Disabled");
+		ReplyToCommand(iClient, "%s", g_bEnabled ? "Usage: tf_dodgeball_rocketdragparams <rocket class index> <min drag time> <max drag time> <no bounce drags 0/1>" : "Command Disabled");
 	}
 	
 	return Plugin_Handled;
@@ -2190,6 +2183,8 @@ void ParseClasses(KeyValues kvConfig)
         g_fSavedParameters[iIndex][8]           = g_fRocketClassDragTimeMin[iIndex];
         g_fRocketClassDragTimeMax[iIndex]       = kvConfig.GetFloat("drag time max");
         g_fSavedParameters[iIndex][9]           = g_fRocketClassDragTimeMax[iIndex];
+        g_iRocketClassMaxBounces[iIndex]        = kvConfig.GetNum("max bounces");
+        g_iRocketClassSavedMaxBounces[iIndex]   = g_iRocketClassMaxBounces[iIndex];
         g_fRocketClassPlayerModifier[iIndex]    = kvConfig.GetFloat("no. players modifier");
         g_fRocketClassRocketsModifier[iIndex]   = kvConfig.GetFloat("no. rockets modifier");
         g_fRocketClassTargetWeight[iIndex]      = kvConfig.GetFloat("direction to target weight");
@@ -2649,7 +2644,7 @@ void checkStolenRocket(int clientId, int entId)
 {
 	int iTarget = EntRefToEntIndex(g_iRocketTarget[entId]);
 	
-	if (iTarget != clientId && !bStealArray[clientId].stoleRocket && (GetEntitiesDistance(iTarget, clientId) > g_fStealDistance) && (GetClientTeam(iTarget) == GetClientTeam(clientId)))
+	if (iTarget != clientId && !bStealArray[clientId].stoleRocket && (GetEntitiesDistance(iTarget, clientId) > g_fStealDistance) && (GetClientTeam(iTarget) == GetClientTeam(clientId)) && !g_bPreventingDelay[entId])
 	{
 		bStealArray[clientId].stoleRocket = true;
 		if (bStealArray[clientId].rocketsStolen < g_hCvarStealPreventionNumber.IntValue)
@@ -2679,23 +2674,10 @@ public Action tStealTimer(Handle hTimer, any iClientUid)
 
 public void tf2dodgeball_cvarhook(Handle convar, const char[] oldValue, const char[] newValue)
 {
-	if (convar == g_hMaxBouncesConVar)
-	{
-		g_config_iMaxBounces = StringToInt(newValue);
-	}
 	if (convar == g_hCvarStealDistance)
 	{
 		g_fStealDistance = StringToFloat(newValue);
 	}
-}
-
-public void OnEntityCreated(int entity, const char[] classname)
-{
-	if (!StrEqual(classname, "tf_projectile_rocket", false))
-		return;
-	
-	g_nBounces[entity] = 0;
-	SDKHook(entity, SDKHook_StartTouch, OnStartTouch);
 }
 
 public Action OnStartTouch(int entity, int other)
@@ -2703,11 +2685,23 @@ public Action OnStartTouch(int entity, int other)
 	if (other > 0 && other <= MaxClients)
 		return Plugin_Continue;
 		
-	// Only allow a rocket to bounce x times.
-	if (g_nBounces[entity] >= g_config_iMaxBounces)
+	int iIndex = FindRocketByEntity(entity);
+	
+	if (iIndex != -1)
+	{
+		// Only allow a rocket to bounce x times.
+		int iClass = g_iRocketClass[iIndex];
+		
+		if (g_iRocketBounces[iIndex] >= g_iRocketClassMaxBounces[iClass])
+			return Plugin_Continue;
+	}
+	else
+	{
 		return Plugin_Continue;
+	}
 	
 	SDKHook(entity, SDKHook_Touch, OnTouch);
+	
 	return Plugin_Handled;
 }
 
@@ -2752,18 +2746,19 @@ public Action OnTouch(int entity, int other)
 	//PrintToServer("Velocity: [%.2f, %.2f, %.2f] |%.2f| -> [%.2f, %.2f, %.2f] |%.2f|", vVelocity[0], vVelocity[1], vVelocity[2], GetVectorLength(vVelocity), vBounceVec[0], vBounceVec[1], vBounceVec[2], GetVectorLength(vBounceVec));
 	
 	TeleportEntity(entity, NULL_VECTOR, vNewAngles, vBounceVec);
-
-	g_nBounces[entity]++;
 	
 	int iIndex = FindRocketByEntity(entity);
+	
 	if (iIndex != -1)
 	{
+		g_iRocketBounces[iIndex]++;
+		
 		if (g_iRocketFlags[iIndex] & RocketFlag_NoBounceDrags)
 		{
 			g_bIsRocketDraggable[iIndex] = false;
 		}
 		
-		if(g_iRocketFlags[iIndex] & RocketFlag_KeepDirection)
+		if((g_bPreventingDelay[iIndex]) || (g_iRocketFlags[iIndex] & RocketFlag_KeepDirection))
 		{
 			g_bIsRocketBouncing[iIndex] = true;
 		}
@@ -2774,7 +2769,9 @@ public Action OnTouch(int entity, int other)
 			CopyVectors(fDirection, g_fRocketDirection[iIndex]);
 		}
 	}
+	
 	SDKUnhook(entity, SDKHook_Touch, OnTouch);
+	
 	return Plugin_Handled;
 }
 
