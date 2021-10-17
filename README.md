@@ -8,7 +8,6 @@ A modified version of the original YADB (Yet Another Dodgeball) plugin.
     tf_dodgeball_steal_prevention "0"     - Enable steal prevention?
     tf_dodgeball_sp_number        "3"     - How many steals before you get slayed?
     tf_dodgeball_sp_damage        "0"     - Reduce all damage on stolen rockets?
-    tf_dodgeball_rbmax            "10000" - Max number of times a rocket will bounce.
     tf_dodgeball_sp_distance      "48.0"  - The distance between players for a steal to register.
     tf_dodgeball_delay_prevention "1"     - Enable delay prevention?
     tf_dodgeball_dp_time          "5"     - How much time [in seconds] before delay prevention activates?
