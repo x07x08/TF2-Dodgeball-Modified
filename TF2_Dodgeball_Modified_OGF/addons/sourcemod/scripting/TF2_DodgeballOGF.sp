@@ -8,7 +8,7 @@
 // INCLUDES
 // *********************************************************************************
 #include <sourcemod>
-#include <sdktools> 
+#include <sdktools>
 #include <tf2>
 #include <tf2_stocks>
 #include <sdkhooks>
@@ -19,7 +19,7 @@
 // ---- Plugin-related constants ---------------------------------------------------
 #define PLUGIN_NAME             "[TF2] Dodgeball"
 #define PLUGIN_AUTHOR           "Damizean, edited by x07x08 with features from YADBP 1.4.2 & Redux"
-#define PLUGIN_VERSION          "1.3 OGF"
+#define PLUGIN_VERSION          "1.4 OGF"
 #define PLUGIN_CONTACT          "https://github.com/x07x08/TF2_Dodgeball_Modified"
 #define CVAR_FLAGS              FCVAR_PLUGIN
 
@@ -73,7 +73,22 @@ enum RocketFlags
     RocketFlag_KeepDirection    = 1 << 18,
     RocketFlag_TeamlessHits     = 1 << 19,
     RocketFlag_ResetBounces     = 1 << 20,
-    RocketFlag_NoBounceDrags    = 1 << 21
+    RocketFlag_NoBounceDrags    = 1 << 21,
+    RocketFlag_CustomTrail      = 1 << 22,
+    RocketFlag_CustomSprite     = 1 << 23,
+    RocketFlag_RemoveParticles  = 1 << 24,
+    RocketFlag_ReplaceParticles = 1 << 25
+};
+
+enum ParticleAttachmentType
+{
+    PATTACH_ABSORIGIN = 0,    // Create at absorigin, but don't follow
+    PATTACH_ABSORIGIN_FOLLOW, // Create at absorigin, and update to follow the entity
+    PATTACH_CUSTOMORIGIN,     // Create at a custom origin, but don't follow
+    PATTACH_POINT,            // Create on attachment point, but don't follow
+    PATTACH_POINT_FOLLOW,     // Create on attachment point, and update to follow the entity
+    PATTACH_WORLDORIGIN,      // Used for control points that don't attach to an entity
+    PATTACH_ROOTBONE_FOLLOW   // Create at the root bone of the entity, and update to follow
 };
 
 enum RocketSound
@@ -143,6 +158,9 @@ int    g_iLastDeadClient;         // The last dead client. If none, it's a rando
 int    g_iPlayerCount;
 float  g_fTickModifier;
 float  g_fStealDistance = 48.0;
+int    g_iEmptyModel = -1;
+bool   g_bClientHideTrails [MAXPLAYERS + 1];
+bool   g_bClientHideSprites[MAXPLAYERS + 1];
 
 enum struct eRocketSteal
 {
@@ -163,6 +181,11 @@ char g_strWebPlayerUrl[256];
 // Rockets
 bool        g_bRocketIsValid            [MAX_ROCKETS];
 int         g_iRocketEntity             [MAX_ROCKETS];
+int         g_iRocketFakeEntity         [MAX_ROCKETS];
+int         g_iRocketTrailEntity        [MAX_ROCKETS];
+int         g_iRocketRedCriticalEntity  [MAX_ROCKETS];
+int         g_iRocketBluCriticalEntity  [MAX_ROCKETS];
+int         g_iRocketSpriteEntity       [MAX_ROCKETS];
 int         g_iRocketTarget             [MAX_ROCKETS];
 int         g_iRocketSpawner            [MAX_ROCKETS];
 int         g_iRocketClass              [MAX_ROCKETS];
@@ -188,6 +211,9 @@ char           g_strRocketClassName           [MAX_ROCKET_CLASSES][16];
 char           g_strRocketClassLongName       [MAX_ROCKET_CLASSES][32];
 BehaviourTypes g_iRocketClassBehaviour        [MAX_ROCKET_CLASSES];
 char           g_strRocketClassModel          [MAX_ROCKET_CLASSES][PLATFORM_MAX_PATH];
+char           g_strRocketClassTrail          [MAX_ROCKET_CLASSES][128];
+char           g_strRocketClassSprite         [MAX_ROCKET_CLASSES][PLATFORM_MAX_PATH];
+char           g_strRocketClassSpriteColor    [MAX_ROCKET_CLASSES][32];
 RocketFlags    g_iRocketClassFlags            [MAX_ROCKET_CLASSES];
 float          g_fRocketClassBeepInterval     [MAX_ROCKET_CLASSES];
 char           g_strRocketClassSpawnSound     [MAX_ROCKET_CLASSES][PLATFORM_MAX_PATH];
@@ -374,6 +400,9 @@ void EnableDodgeBall()
         HookEvent("teamplay_broadcast_audio", OnBroadcastAudio, EventHookMode_Pre);
         HookEvent("object_deflected", OnObjectDeflected);
         
+        g_iEmptyModel = PrecacheModel("models/empty.mdl", true);
+        PrecacheParticleSystem("rockettrail_fire"); // Why isn't this particle already precached?
+        
         // Precache sounds
         PrecacheSound(SOUND_DEFAULT_SPAWN, true);
         PrecacheSound(SOUND_DEFAULT_BEEP, true);
@@ -403,6 +432,8 @@ void EnableDodgeBall()
             if (TestFlags(iFlags, RocketFlag_CustomSpawnSound)) PrecacheSoundEx(g_strRocketClassSpawnSound[i], true, true);
             if (TestFlags(iFlags, RocketFlag_CustomBeepSound))  PrecacheSoundEx(g_strRocketClassBeepSound[i], true, true);
             if (TestFlags(iFlags, RocketFlag_CustomAlertSound)) PrecacheSoundEx(g_strRocketClassAlertSound[i], true, true);
+            if (TestFlags(iFlags, RocketFlag_CustomTrail))      PrecacheParticleSystem(g_strRocketClassTrail[i]);
+            if (TestFlags(iFlags, RocketFlag_CustomSprite))     PrecacheTrail(g_strRocketClassSprite[i]);
         }
         
         // Execute enable config file
@@ -471,6 +502,9 @@ public void OnClientDisconnect(int client)
 	{
 		g_iLastDeadClient = 0;
 	}
+	
+	g_bClientHideTrails [client] = false;
+	g_bClientHideSprites[client] = false;
 }
 
 //   ___                     _           
@@ -729,6 +763,33 @@ public Action OnObjectDeflected(Event hEvent, char[] strEventName, bool bDontBro
 		{
 			g_iRocketBounces[iIndex] = 0;
 		}
+		
+		if (g_iRocketFlags[iIndex] & RocketFlag_ReplaceParticles)
+		{
+			bool bCritical = !!GetEntProp(iEntity, Prop_Send, "m_bCritical");
+			
+			if (bCritical)
+			{
+				int iRedCriticalEntity = EntRefToEntIndex(g_iRocketRedCriticalEntity[iIndex]);
+				int iBluCriticalEntity = EntRefToEntIndex(g_iRocketBluCriticalEntity[iIndex]);
+				
+				if (iRedCriticalEntity != -1 && iBluCriticalEntity != -1)
+				{
+					int iTeam = GetEntProp(iEntity, Prop_Send, "m_iTeamNum", 1);
+					
+					if (iTeam == view_as<int>(TFTeam_Red))
+					{
+						AcceptEntityInput(iBluCriticalEntity, "Stop");
+						AcceptEntityInput(iRedCriticalEntity, "Start");
+					}
+					else if (iTeam == view_as<int>(TFTeam_Blue))
+					{
+						AcceptEntityInput(iBluCriticalEntity, "Start");
+						AcceptEntityInput(iRedCriticalEntity, "Stop");
+					}
+				}
+			}
+		}
 	}
 }
 
@@ -803,7 +864,7 @@ public Action OnDodgeBallGameFrame(Handle hTimer, any Data)
 ** Fires a new rocket entity from the spawner's position.
 ** -------------------------------------------------------------------------- */
 public void CreateRocket(int iSpawnerEntity, int iSpawnerClass, int iTeam)
-{    
+{
     int iIndex = FindFreeRocketSlot();
     if (iIndex != -1)
     {
@@ -835,7 +896,7 @@ public void CreateRocket(int iSpawnerEntity, int iSpawnerClass, int iTeam)
             g_bRocketIsValid[iIndex]            = true;
             g_iRocketFlags[iIndex]              = iFlags;
             g_iRocketEntity[iIndex]             = EntIndexToEntRef(iEntity);
-            g_iRocketTarget[iIndex]             = EntIndexToEntRef(iTarget);    
+            g_iRocketTarget[iIndex]             = EntIndexToEntRef(iTarget);
             g_iRocketSpawner[iIndex]            = iSpawnerClass;
             g_iRocketClass[iIndex]              = iClass;
             g_iRocketDeflections[iIndex]        = 0;
@@ -852,12 +913,181 @@ public void CreateRocket(int iSpawnerEntity, int iSpawnerClass, int iTeam)
             CopyVectors(fDirection, g_fRocketDirection[iIndex]);
             SetEntDataFloat(iEntity, FindSendPropInfo("CTFProjectile_Rocket", "m_iDeflected") + 4, CalculateRocketDamage(iClass, fModifier), true);
             DispatchSpawn(iEntity);
+            
+            if (TestFlags(iFlags, RocketFlag_RemoveParticles))
+            {
+                int iOtherEntity = CreateEntityByName("prop_dynamic");
+                if (iOtherEntity && IsValidEntity(iOtherEntity))
+                {
+                    SetEntProp(iEntity, Prop_Send, "m_nModelIndexOverrides", g_iEmptyModel);
+                    SetEntityModel(iOtherEntity, "models/weapons/w_models/w_rocket.mdl");
+                    
+                    TeleportEntity(iOtherEntity, fPosition, fAngles, view_as<float>({0.0, 0.0, 0.0}));
+                    g_iRocketFakeEntity[iIndex] = EntIndexToEntRef(iOtherEntity);
+                    DispatchSpawn(iOtherEntity);
+                    
+                    SetVariantString("!activator");
+                    AcceptEntityInput(iOtherEntity, "SetParent", iEntity, iOtherEntity);
+                    
+                    if (TestFlags(iFlags, RocketFlag_ReplaceParticles))
+                    {
+                        CreateTempParticle("rockettrail_fire", fPosition, NULL_VECTOR, fAngles, iOtherEntity, PATTACH_POINT, 1); // If the rocket gets instantly destroyed, the temp ent still gets sent. Why?
                         
+                        bool bCritical = !!GetEntProp(iEntity, Prop_Send, "m_bCritical");
+                        if (bCritical)
+                        {
+                            int iRedCriticalEntity = CreateEntityByName("info_particle_system");
+                            int iBluCriticalEntity = CreateEntityByName("info_particle_system");
+                            
+                            if ((iRedCriticalEntity && IsValidEdict(iRedCriticalEntity)) && (iBluCriticalEntity && IsValidEdict(iBluCriticalEntity)))
+                            {
+                                TeleportEntity(iRedCriticalEntity, fPosition, fAngles, view_as<float>({0.0, 0.0, 0.0}));
+                                TeleportEntity(iBluCriticalEntity, fPosition, fAngles, view_as<float>({0.0, 0.0, 0.0}));
+                                
+                                DispatchKeyValue(iRedCriticalEntity, "effect_name", "critical_rocket_red");
+                                DispatchKeyValue(iBluCriticalEntity, "effect_name", "critical_rocket_blue");
+                                
+                                g_iRocketRedCriticalEntity[iIndex] = EntIndexToEntRef(iRedCriticalEntity);
+                                g_iRocketBluCriticalEntity[iIndex] = EntIndexToEntRef(iBluCriticalEntity);
+                                
+                                DispatchSpawn(iRedCriticalEntity);
+                                DispatchSpawn(iBluCriticalEntity);
+                                
+                                ActivateEntity(iRedCriticalEntity);
+                                ActivateEntity(iBluCriticalEntity);
+                                
+                                SetVariantString("!activator");
+                                AcceptEntityInput(iRedCriticalEntity, "SetParent", iOtherEntity, iRedCriticalEntity);
+                                
+                                SetVariantString("!activator");
+                                AcceptEntityInput(iBluCriticalEntity, "SetParent", iOtherEntity, iBluCriticalEntity);
+                                
+                                SetVariantString("trail");
+                                AcceptEntityInput(iRedCriticalEntity, "SetParentAttachment", iOtherEntity, iRedCriticalEntity);
+                                
+                                SetVariantString("trail");
+                                AcceptEntityInput(iBluCriticalEntity, "SetParentAttachment", iOtherEntity, iBluCriticalEntity);
+                                
+                                if (iTeam == view_as<int>(TFTeam_Red))
+                                {
+                                    AcceptEntityInput(iRedCriticalEntity, "Start");
+                                }
+                                else if (iTeam == view_as<int>(TFTeam_Blue))
+                                {
+                                    AcceptEntityInput(iBluCriticalEntity, "Start");
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            if (TestFlags(iFlags, RocketFlag_CustomTrail))
+            {
+                int iTrailEntity = CreateEntityByName("info_particle_system");
+                if (iTrailEntity && IsValidEdict(iTrailEntity))
+                {
+                    TeleportEntity(iTrailEntity, fPosition, fAngles, view_as<float>({0.0, 0.0, 0.0}));
+                    DispatchKeyValue(iTrailEntity, "effect_name", g_strRocketClassTrail[iClass]);
+                    
+                    g_iRocketTrailEntity[iIndex] = EntIndexToEntRef(iTrailEntity);
+                    DispatchSpawn(iTrailEntity);
+                    ActivateEntity(iTrailEntity);
+                    
+                    if (TestFlags(iFlags, RocketFlag_RemoveParticles))
+                    {
+                        int iOtherEntity = EntRefToEntIndex(g_iRocketFakeEntity[iIndex]);
+                        
+                        if (iOtherEntity != -1)
+                        {
+                            SetVariantString("!activator");
+                            AcceptEntityInput(iTrailEntity, "SetParent", iOtherEntity, iTrailEntity);
+                            
+                            SetVariantString("trail");
+                            AcceptEntityInput(iTrailEntity, "SetParentAttachment", iOtherEntity, iTrailEntity);
+                            
+                            AcceptEntityInput(iTrailEntity, "Start");
+                        }
+                    }
+                    else
+                    {
+                        SetVariantString("!activator");
+                        AcceptEntityInput(iTrailEntity, "SetParent", iEntity, iTrailEntity);
+                        
+                        SetVariantString("trail");
+                        AcceptEntityInput(iTrailEntity, "SetParentAttachment", iEntity, iTrailEntity);
+                        
+                        AcceptEntityInput(iTrailEntity, "Start");
+                    }
+                    
+                    SetEdictFlags(iTrailEntity, (GetEdictFlags(iTrailEntity) & ~FL_EDICT_ALWAYS)); // Allows SetTransmit to work on info_particle_system
+                    SDKHook(iTrailEntity, SDKHook_SetTransmit, TrailSetTransmit);
+                }
+            }
+            
+            if (TestFlags(iFlags, RocketFlag_CustomSprite))
+            {
+                int iSpriteEntity = CreateEntityByName("env_spritetrail");
+                if (iSpriteEntity && IsValidEntity(iSpriteEntity))
+                {
+                    TeleportEntity(iSpriteEntity, fPosition, fAngles, view_as<float>({0.0, 0.0, 0.0}));
+                    
+                    char strSpritePath[PLATFORM_MAX_PATH];
+                    FormatEx(strSpritePath, PLATFORM_MAX_PATH, "%s.vmt", g_strRocketClassSprite[iClass]);
+                    
+                    DispatchKeyValue(iSpriteEntity, "spritename", strSpritePath);
+                    DispatchKeyValueFloat(iSpriteEntity, "lifetime", 1.0);
+                    DispatchKeyValueFloat(iSpriteEntity, "endwidth", 15.0);
+                    DispatchKeyValueFloat(iSpriteEntity, "startwidth", 6.0);
+                    DispatchKeyValue(iSpriteEntity, "rendercolor", strlen(g_strRocketClassSpriteColor[iClass]) != 0 ? g_strRocketClassSpriteColor[iClass] : "255 255 255");
+                    DispatchKeyValue(iSpriteEntity, "renderamt", "255");
+                    DispatchKeyValue(iSpriteEntity, "rendermode", "3");
+                    SetEntPropFloat(iSpriteEntity, Prop_Send, "m_flTextureRes", 0.05);
+                    
+                    g_iRocketSpriteEntity[iIndex] = EntIndexToEntRef(iSpriteEntity);
+                    
+                    if (TestFlags(iFlags, RocketFlag_RemoveParticles))
+                    {
+                        int iOtherEntity = EntRefToEntIndex(g_iRocketFakeEntity[iIndex]);
+                        
+                        if (iOtherEntity != -1)
+                        {
+                            SetVariantString("!activator");
+                            AcceptEntityInput(iSpriteEntity, "SetParent", iOtherEntity, iSpriteEntity);
+                            
+                            SetVariantString("trail");
+                            AcceptEntityInput(iSpriteEntity, "SetParentAttachment", iOtherEntity, iSpriteEntity);
+                        }
+                    }
+                    else
+                    {
+                        SetVariantString("!activator");
+                        AcceptEntityInput(iSpriteEntity, "SetParent", iEntity, iSpriteEntity);
+                        
+                        SetVariantString("trail");
+                        AcceptEntityInput(iSpriteEntity, "SetParentAttachment", iEntity, iSpriteEntity);
+                    }
+                    
+                    DispatchSpawn(iSpriteEntity);
+                    SDKHook(iSpriteEntity, SDKHook_SetTransmit, SpriteSetTransmit);
+                }
+            }
+            
             // Apply custom model, if specified on the flags.
             if (TestFlags(iFlags, RocketFlag_CustomModel))
             {
                 SetEntityModel(iEntity, g_strRocketClassModel[iClass]);
                 UpdateRocketSkin(iEntity, iTeam, TestFlags(iFlags, RocketFlag_IsNeutral));
+                
+                if (TestFlags(iFlags, RocketFlag_RemoveParticles))
+                {
+                    int iOtherEntity = EntRefToEntIndex(g_iRocketFakeEntity[iIndex]);
+                    if (iOtherEntity != -1)
+                    {
+                        SetEntityModel(iOtherEntity, g_strRocketClassModel[iClass]);
+                        UpdateRocketSkin(iOtherEntity, iTeam, TestFlags(iFlags, RocketFlag_IsNeutral));
+                    }
+                }
             }
             
             // Execute commands on spawn.
@@ -879,6 +1109,24 @@ public void CreateRocket(int iSpawnerEntity, int iSpawnerClass, int iTeam)
             SDKHook(iEntity, SDKHook_StartTouch, OnStartTouch);
         }
     }
+}
+
+public Action TrailSetTransmit(int iEntity, int iClient)
+{
+	if (IsValidEntity(iEntity))
+	{
+		if(GetEdictFlags(iEntity) & FL_EDICT_ALWAYS)
+		{
+			SetEdictFlags(iEntity, (GetEdictFlags(iEntity) ^ FL_EDICT_ALWAYS)); // Stops the game from setting back the flag
+		}
+	}
+	
+	return g_bClientHideTrails[iClient] ? Plugin_Handled : Plugin_Continue;
+}
+
+public Action SpriteSetTransmit(int iEntity, int iClient)
+{
+	return g_bClientHideSprites[iClient] ? Plugin_Handled : Plugin_Continue;
 }
 
 /* DestroyRocket()
@@ -1002,6 +1250,15 @@ void HomingRocketThink(int iIndex)
             GetAngleVectors(fViewAngles, fDirection, NULL_VECTOR, NULL_VECTOR);
             CopyVectors(fDirection, g_fRocketDirection[iIndex]);
             UpdateRocketSkin(iEntity, iTeam, TestFlags(iFlags, RocketFlag_IsNeutral));
+            
+            if (TestFlags(iFlags, RocketFlag_RemoveParticles))
+            {
+                int iOtherEntity = EntRefToEntIndex(g_iRocketFakeEntity[iIndex]);
+                if (iOtherEntity != -1)
+                {
+                    UpdateRocketSkin(iOtherEntity, iTeam, TestFlags(iFlags, RocketFlag_IsNeutral));
+                }
+            }
         }
         // Set new target & deflection count
         g_iRocketAltDeflections[iIndex]     = iDeflectionCount;
@@ -1060,6 +1317,31 @@ void HomingRocketThink(int iIndex)
                 {
                     g_iRocketBounces[iIndex] = 0;
                 }
+                
+                if ((iFlags & RocketFlag_ReplaceParticles) && iDeflectionCount == 1)
+                {
+                    bool bCritical = !!GetEntProp(iEntity, Prop_Send, "m_bCritical");
+                    
+                    if (bCritical)
+                    {
+                        int iRedCriticalEntity = EntRefToEntIndex(g_iRocketRedCriticalEntity[iIndex]);
+                        int iBluCriticalEntity = EntRefToEntIndex(g_iRocketBluCriticalEntity[iIndex]);
+                        
+                        if (iRedCriticalEntity != -1 && iBluCriticalEntity != -1)
+                        {
+                            if (iTeam == view_as<int>(TFTeam_Red))
+                            {
+                                AcceptEntityInput(iBluCriticalEntity, "Stop");
+                                AcceptEntityInput(iRedCriticalEntity, "Start");
+                            }
+                            else if (iTeam == view_as<int>(TFTeam_Blue))
+                            {
+                                AcceptEntityInput(iBluCriticalEntity, "Start");
+                                AcceptEntityInput(iRedCriticalEntity, "Stop");
+                            }
+                        }
+                    }
+                }
                 // Set new target & deflection count
                 iTarget = SelectTarget(iTargetTeam, iIndex);
                 g_iRocketTarget[iIndex]      = EntIndexToEntRef(iTarget);
@@ -1071,7 +1353,7 @@ void HomingRocketThink(int iIndex)
                 if (TestFlags(iFlags, RocketFlag_ElevateOnDeflect)) g_iRocketFlags[iIndex] |= RocketFlag_Elevating;
                 EmitRocketSound(RocketSound_Alert, iClass, iEntity, iTarget, iFlags);
                 
-                if(g_iRocketFlags[iIndex] & RocketFlag_IsSpeedLimited)
+                if (g_iRocketFlags[iIndex] & RocketFlag_IsSpeedLimited)
                 {
                     if (g_fRocketSpeed[iIndex] >= g_fRocketClassSpeedLimit[iClass])
                     {
@@ -1079,7 +1361,7 @@ void HomingRocketThink(int iIndex)
                     }
                 }
                 
-                if(g_bIsRocketStolen[iIndex] && g_hCvarStealPreventionDamage.BoolValue)
+                if (g_bIsRocketStolen[iIndex] && g_hCvarStealPreventionDamage.BoolValue)
                 {
                     SetEntDataFloat(iEntity, FindSendPropInfo("CTFProjectile_Rocket", "m_iDeflected") + 4, 0.0, true);
                 }
@@ -1101,27 +1383,19 @@ void HomingRocketThink(int iIndex)
                 if ((GetGameTime() - g_fRocketLastDeflectionTime[iIndex]) >= g_fRocketClassControlDelay[iClass])
                 {
                     // Calculate turn rate and retrieve directions.
-                    float fTurnRate = CalculateRocketTurnRate(iClass, fModifier)/g_fTickModifier;
+                    float fTurnRate = CalculateRocketTurnRate(iClass, fModifier) / g_fTickModifier;
                     float fDirectionToTarget[3]; CalculateDirectionToClient(iEntity, iTarget, fDirectionToTarget);
                     
                     if (g_iRocketFlags[iIndex] & RocketFlag_Elevating)
                     {
-                        if (g_fRocketDirection[iIndex][2] < g_fRocketClassElevationLimit[iClass])
-                        {
-                            g_fRocketDirection[iIndex][2] = FMin(g_fRocketDirection[iIndex][2] + g_fRocketClassElevationRate[iClass] / g_fTickModifier, g_fRocketClassElevationLimit[iClass]);
-                            fDirectionToTarget[2] = g_fRocketDirection[iIndex][2];
-                        }
-                        else
-                        {
-                            g_iRocketFlags[iIndex] &= ~RocketFlag_Elevating;
-                        }
+                        fDirectionToTarget[2] = g_fRocketDirection[iIndex][2];
                     }
                     
-                    if(g_iRocketFlags[iIndex] & RocketFlag_IsLimited)
+                    if (g_iRocketFlags[iIndex] & RocketFlag_IsLimited)
                     {
-                        if (fTurnRate >= g_fRocketClassTurnRateLimit[iClass]/g_fTickModifier)
+                        if (fTurnRate >= g_fRocketClassTurnRateLimit[iClass] / g_fTickModifier)
                         {
-                            fTurnRate = g_fRocketClassTurnRateLimit[iClass]/g_fTickModifier;
+                            fTurnRate = g_fRocketClassTurnRateLimit[iClass] / g_fTickModifier;
                         }
                     }
                     
@@ -1149,6 +1423,21 @@ void RocketOtherThink(int iIndex)
     
     if (!(iDeflectionCount > g_iRocketDeflections[iIndex]))
     {
+        if ((GetGameTime() - g_fRocketLastDeflectionTime[iIndex]) >= g_fRocketClassControlDelay[iClass])
+        {
+            if (g_iRocketFlags[iIndex] & RocketFlag_Elevating)
+            {
+                if (g_fRocketDirection[iIndex][2] < g_fRocketClassElevationLimit[iClass])
+                {
+                    g_fRocketDirection[iIndex][2] = FMin(g_fRocketDirection[iIndex][2] + g_fRocketClassElevationRate[iClass], g_fRocketClassElevationLimit[iClass]);
+                }
+                else
+                {
+                    g_iRocketFlags[iIndex] &= ~RocketFlag_Elevating;
+                }
+            }
+        }
+        
         if ((GetGameTime() - g_fRocketLastBeepTime[iIndex]) >= g_fRocketClassBeepInterval[iClass])
         {
             EmitRocketSound(RocketSound_Beep, iClass, iEntity, iTarget, iFlags);
@@ -1440,6 +1729,8 @@ void RegisterCommands()
     RegAdminCmd("tf_dodgeball_destroyrockets", CmdDestroyRockets, ADMFLAG_CONFIG, "Destroy all current rockets.");
     RegAdminCmd("tf_dodgeball_rocketotherparams", CmdOtherParams, ADMFLAG_CONFIG, "Change other rocket parameters.");
     RegAdminCmd("tf_dodgeball_rocketdragparams", CmdDragParams, ADMFLAG_CONFIG, "Change rocket drag parameters.");
+    RegConsoleCmd("sm_togglerockettrails", CmdHideTrails);
+    RegConsoleCmd("sm_togglerocketsprites", CmdHideSprites);
 }
 
 /* CmdExplosion()
@@ -1996,6 +2287,50 @@ public Action CmdDragParams(int iClient, int iArgs)
 	return Plugin_Handled;
 }
 
+public Action CmdHideTrails(int iClient, int iArgs)
+{
+	if (iClient == 0)
+	{
+		ReplyToCommand(iClient, "Command is in-game only.");
+		return Plugin_Handled;
+	}
+	
+	if (!iArgs && g_bEnabled)
+	{
+		g_bClientHideTrails[iClient] = !g_bClientHideTrails[iClient];
+		
+		PrintToChat(iClient, "\x05[YADBP]\x01 Custom rocket particle trails are now %s.", g_bClientHideTrails[iClient] ? "hidden" : "visible");
+	}
+	else
+	{
+		ReplyToCommand(iClient, "%s", g_bEnabled ? "Usage: sm_hiderockettrails" : "Command Disabled");
+	}
+	
+	return Plugin_Handled;
+}
+
+public Action CmdHideSprites(int iClient, int iArgs)
+{
+	if (iClient == 0)
+	{
+		ReplyToCommand(iClient, "Command is in-game only.");
+		return Plugin_Handled;
+	}
+	
+	if (!iArgs && g_bEnabled)
+	{
+		g_bClientHideSprites[iClient] = !g_bClientHideSprites[iClient];
+		
+		PrintToChat(iClient, "\x05[YADBP]\x01 Custom rocket sprite trails are now %s.", g_bClientHideSprites[iClient] ? "hidden" : "visible");
+	}
+	else
+	{
+		ReplyToCommand(iClient, "%s", g_bEnabled ? "Usage: sm_hiderocketsprites" : "Command Disabled");
+	}
+	
+	return Plugin_Handled;
+}
+
 /* ExecuteCommands()
 **
 ** The core of the plugin's event system, unpacks and correctly formats the
@@ -2045,9 +2380,9 @@ bool ParseConfigurations(char[] strConfigFile = "general.cfg")
     char strFileName[PLATFORM_MAX_PATH];
     Format(strFileName, sizeof(strFileName), "configs/dodgeball/%s", strConfigFile);
     BuildPath(Path_SM, strPath, sizeof(strPath), strFileName);
-       
+    
     // Try to parse if it exists
-    LogMessage("Executing configuration file %s", strPath);    
+    LogMessage("Executing configuration file %s", strPath);
     if (FileExists(strPath, true))
     {
         KeyValues kvConfig = new KeyValues("TF2_Dodgeball");
@@ -2064,7 +2399,7 @@ bool ParseConfigurations(char[] strConfigFile = "general.cfg")
             else if (StrEqual(strSection, "spawners")) ParseSpawners(kvConfig);
         }
         while (kvConfig.GotoNextKey());
-            
+        
         delete kvConfig;
     }
 }
@@ -2116,6 +2451,34 @@ void ParseClasses(KeyValues kvConfig)
             }
         }
         
+        if (kvConfig.GetString("trail particle", strBuffer, sizeof(strBuffer)))
+        {
+            strcopy(g_strRocketClassTrail[iIndex], sizeof(g_strRocketClassTrail[]), strBuffer);
+            if (strlen(g_strRocketClassTrail[iIndex]) != 0)
+            {
+                iFlags |= RocketFlag_CustomTrail;
+            }
+        }
+        
+        if (kvConfig.GetString("trail sprite", strBuffer, sizeof(strBuffer)))
+        {
+            strcopy(g_strRocketClassSprite[iIndex], PLATFORM_MAX_PATH, strBuffer);
+            if (strlen(g_strRocketClassSprite[iIndex]) != 0)
+            {
+                iFlags |= RocketFlag_CustomSprite;
+                if (kvConfig.GetString("custom color", strBuffer, sizeof(strBuffer)))
+                {
+                    strcopy(g_strRocketClassSpriteColor[iIndex], sizeof(g_strRocketClassSpriteColor[]), strBuffer);
+                }
+            }
+        }
+        
+        if (kvConfig.GetNum("remove particles", 0))
+        {
+            iFlags |= RocketFlag_RemoveParticles;
+            if (kvConfig.GetNum("replace particles", 0)) iFlags |= RocketFlag_ReplaceParticles;
+        }
+        
         kvConfig.GetString("behaviour", strBuffer, sizeof(strBuffer), "homing");
         if (StrEqual(strBuffer, "homing")) g_iRocketClassBehaviour[iIndex] = Behaviour_Homing;
         else                               g_iRocketClassBehaviour[iIndex] = Behaviour_Unknown;
@@ -2145,7 +2508,7 @@ void ParseClasses(KeyValues kvConfig)
             if (kvConfig.GetString("alert sound", g_strRocketClassAlertSound[iIndex], PLATFORM_MAX_PATH) && strlen(g_strRocketClassAlertSound[iIndex]) != 0)
             {
                 iFlags |= RocketFlag_CustomAlertSound;
-            }    
+            }
         }
         
         // Behaviour modifiers
@@ -2218,7 +2581,7 @@ void ParseSpawners(KeyValues kvConfig)
 {
     char strBuffer[256];
     kvConfig.GotoFirstSubKey();
-        
+    
     do
     {
         int iIndex = g_iSpawnersCount;
@@ -2368,7 +2731,7 @@ stock int CountAlivePlayers()
 ** -------------------------------------------------------------------------- */
 stock int SelectTarget(int iTeam, int iRocket = -1)
 {
-    int iTarget             = -1;
+    int iTarget = -1;
     float fTargetWeight = 0.0;
     float fRocketPosition[3];
     float fRocketDirection[3];
@@ -2390,7 +2753,7 @@ stock int SelectTarget(int iTeam, int iRocket = -1)
     }
     
     for (int iClient = 1; iClient <= MaxClients; iClient++)
-    {    
+    {
         // If the client isn't connected, skip.
         if (!IsValidClient(iClient, true)) continue;
         if (iTeam && GetClientTeam(iClient) != iTeam) continue;
@@ -2447,7 +2810,7 @@ stock void PlayParticle(float fPosition[3], float fAngles[3], char[] strParticle
     else
     {
         LogError("ShowParticle: could not create info_particle_system");
-    }    
+    }
 }
 
 /* StopParticle()
@@ -2496,7 +2859,7 @@ stock void PrecacheParticle(char[] strParticleName)
 ** Used to iterate through entity types, avoiding problems in cases where
 ** the entity may not exist anymore.
 ** -------------------------------------------------------------------------- */
-stock void FindEntityByClassnameSafe(int iStart, const char[] strClassname)
+stock int FindEntityByClassnameSafe(int iStart, const char[] strClassname)
 {
     while (iStart > -1 && !IsValidEntity(iStart))
     {
@@ -2758,7 +3121,7 @@ public Action OnTouch(int entity, int other)
 			g_bIsRocketDraggable[iIndex] = false;
 		}
 		
-		if((g_bPreventingDelay[iIndex]) || (g_iRocketFlags[iIndex] & RocketFlag_KeepDirection))
+		if ((g_bPreventingDelay[iIndex]) || (g_iRocketFlags[iIndex] & RocketFlag_KeepDirection))
 		{
 			g_bIsRocketBouncing[iIndex] = true;
 		}
@@ -2811,6 +3174,103 @@ stock float GetEntitiesDistance(int ent1, int ent2)
 	GetEntPropVector(ent2, Prop_Send, "m_vecOrigin", orig2);
 
 	return GetVectorDistance(orig1, orig2);
+}
+
+stock void PrecacheTrail(char[] strFileName)
+{
+	char downloadString[PLATFORM_MAX_PATH];
+	FormatEx(downloadString, sizeof(downloadString), "%s.vmt", strFileName);
+	PrecacheGeneric(downloadString, true);
+	AddFileToDownloadsTable(downloadString);
+	FormatEx(downloadString, sizeof(downloadString), "%s.vtf", strFileName);
+	PrecacheGeneric(downloadString, true);
+	AddFileToDownloadsTable(downloadString);
+}
+
+stock void CreateTempParticle(const char[] strParticle, const float vecOrigin[3] = NULL_VECTOR, const float vecStart[3] = NULL_VECTOR, const float vecAngles[3] = NULL_VECTOR, int iEntity = -1, ParticleAttachmentType AttachmentType = PATTACH_ABSORIGIN, int iAttachmentPoint = -1, bool bResetParticles = false)
+{
+	int iParticleTable, iParticleIndex;
+	
+	iParticleTable = FindStringTable("ParticleEffectNames");
+	if (iParticleTable == INVALID_STRING_TABLE)
+	{
+		ThrowError("Could not find string table: ParticleEffectNames");
+	}
+	
+	iParticleIndex = FindStringIndex(iParticleTable, strParticle);
+	if (iParticleIndex == INVALID_STRING_INDEX)
+	{
+		ThrowError("Could not find particle index: %s", strParticle);
+	}
+	
+	TE_Start("TFParticleEffect");
+	TE_WriteFloat("m_vecOrigin[0]", vecOrigin[0]);
+	TE_WriteFloat("m_vecOrigin[1]", vecOrigin[1]);
+	TE_WriteFloat("m_vecOrigin[2]", vecOrigin[2]);
+	TE_WriteFloat("m_vecStart[0]", vecStart[0]);
+	TE_WriteFloat("m_vecStart[1]", vecStart[1]);
+	TE_WriteFloat("m_vecStart[2]", vecStart[2]);
+	TE_WriteVector("m_vecAngles", vecAngles);
+	TE_WriteNum("m_iParticleSystemIndex", iParticleIndex);
+	
+	if (iEntity != -1)
+	{
+		TE_WriteNum("entindex", iEntity);
+	}
+	
+	if (AttachmentType != PATTACH_ABSORIGIN)
+	{
+		TE_WriteNum("m_iAttachType", view_as<int>(AttachmentType));
+	}
+	
+	if (iAttachmentPoint != -1)
+	{
+		TE_WriteNum("m_iAttachmentPointIndex", iAttachmentPoint);
+	}
+	
+	TE_WriteNum("m_bResetParticles", bResetParticles ? 1 : 0);
+	
+	TE_SendToAll();
+}
+
+stock int PrecacheParticleSystem(const char[] particleSystem)
+{
+    static int particleEffectNames = INVALID_STRING_TABLE;
+
+    if (particleEffectNames == INVALID_STRING_TABLE) {
+        if ((particleEffectNames = FindStringTable("ParticleEffectNames")) == INVALID_STRING_TABLE) {
+            return INVALID_STRING_INDEX;
+        }
+    }
+
+    int index = FindStringIndex2(particleEffectNames, particleSystem);
+    if (index == INVALID_STRING_INDEX) {
+        int numStrings = GetStringTableNumStrings(particleEffectNames);
+        if (numStrings >= GetStringTableMaxStrings(particleEffectNames)) {
+            return INVALID_STRING_INDEX;
+        }
+        
+        AddToStringTable(particleEffectNames, particleSystem);
+        index = numStrings;
+    }
+    
+    return index;
+}
+
+stock int FindStringIndex2(int tableidx, const char[] str)
+{
+    char buf[1024];
+    
+    int numStrings = GetStringTableNumStrings(tableidx);
+    for (int i=0; i < numStrings; i++) {
+        ReadStringTable(tableidx, i, buf, sizeof(buf));
+        
+        if (StrEqual(buf, str)) {
+            return i;
+        }
+    }
+    
+    return INVALID_STRING_INDEX;
 }
 
 // EOF
