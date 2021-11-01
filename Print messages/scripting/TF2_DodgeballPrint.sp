@@ -1,7 +1,7 @@
 #pragma semicolon 1
 
 #define PLUGIN_AUTHOR "x07x08"
-#define PLUGIN_VERSION "1.0"
+#define PLUGIN_VERSION "1.01"
 
 #include <sourcemod>
 #include <morecolors>
@@ -10,7 +10,7 @@
 
 public Plugin myinfo = 
 {
-	name = "[YADB] Print & replace client indexes",
+	name = "[YADBP] Print & replace client indexes",
 	author = PLUGIN_AUTHOR,
 	description = "Does what it says",
 	version = PLUGIN_VERSION,
@@ -19,8 +19,8 @@ public Plugin myinfo =
 
 public void OnPluginStart()
 {
-	RegAdminCmd("tf_dodgeball_print", CmdPrintMessage, ADMFLAG_CHAT, "Prints to chat a message and replaces client indexes inside a pair of '##'");
-	RegAdminCmd("tf_dodgeball_printc", CmdPrintMessageClient, ADMFLAG_CHAT, "Prints a message to a client and replaces client indexes inside a pair of '##'");
+	RegAdminCmd("tf_dodgeball_print", CmdPrintMessage, ADMFLAG_CHAT, "Prints a message to chat and replaces client indexes inside a pair of '##'");
+	RegAdminCmd("tf_dodgeball_print_c", CmdPrintMessageClient, ADMFLAG_CHAT, "Prints a message to a client and replaces client indexes inside a pair of '##'");
 }
 
 public Action CmdPrintMessage(int iClient, int iArgs)
@@ -28,7 +28,7 @@ public Action CmdPrintMessage(int iClient, int iArgs)
 	if (iArgs >= 1)
 	{
 		char strText[255];
-		char strStrings[8][255];
+		char strStrings[16][255];
 		
 		GetCmdArgString(strText, sizeof(strText));
 		TrimString(strText);
@@ -46,11 +46,11 @@ public Action CmdPrintMessage(int iClient, int iArgs)
 			{
 				int iIndex = StringToInt(strStrings[i]);
 				
-				if((iIndex >= 1) && (iIndex <= MaxClients))
+				if ((iIndex >= 1) && (iIndex <= MaxClients))
 				{
 					if (IsClientInGame(iIndex))
 					{
-						FilterWord(strStrings[i], sizeof(strStrings[]), iIndex);
+						Format(strStrings[i], sizeof(strStrings[]), "%N", iIndex);
 					}
 				}
 			}
@@ -74,7 +74,7 @@ public Action CmdPrintMessageClient(int iClient, int iArgs)
 	if (iArgs >= 2)
 	{
 		char strText[255];
-		char strStrings[8][255];
+		char strStrings[16][255];
 		char strBuffer[8];
 		
 		GetCmdArgString(strText, sizeof(strText));
@@ -97,11 +97,11 @@ public Action CmdPrintMessageClient(int iClient, int iArgs)
 			{
 				int iIndex = StringToInt(strStrings[i]);
 				
-				if((iIndex >= 1) && (iIndex <= MaxClients))
+				if ((iIndex >= 1) && (iIndex <= MaxClients))
 				{
 					if (IsClientInGame(iIndex))
 					{
-						FilterWord(strStrings[i], sizeof(strStrings[]), iIndex);
+						Format(strStrings[i], sizeof(strStrings[]), "%N", iIndex);
 					}
 				}
 			}
@@ -110,7 +110,7 @@ public Action CmdPrintMessageClient(int iClient, int iArgs)
 		ImplodeStrings(strStrings, sizeof(strStrings), "##", strText[iLength], sizeof(strStrings[]));
 		ReplaceString(strText[iLength], strlen(strText[iLength]), "##", "");
 		
-		if((iTarget >= 1) && (iTarget <= MaxClients))
+		if ((iTarget >= 1) && (iTarget <= MaxClients))
 		{
 			if (IsClientInGame(iTarget))
 			{
@@ -120,7 +120,7 @@ public Action CmdPrintMessageClient(int iClient, int iArgs)
 	}
 	else
 	{
-		ReplyToCommand(iClient, "Usage : tf_dodgeball_printc <client> <text>");
+		ReplyToCommand(iClient, "Usage : tf_dodgeball_print_c <client> <text>");
 	}
 	
 	return Plugin_Handled;
@@ -161,20 +161,4 @@ stock bool String_IsNumeric(const char[] str)
 	}
 
 	return true;
-}
-
-// From "Simple Chat Filter" by antithasys, changed a little
-stock void FilterWord(char[] strWord, int iMaxLength, int iIndex)
-{
-	char strFilter[64];
-	int iLength = strlen(strWord);
-	
-	for (int i = 0; i < iLength; i++)
-	{
-		char strBuffer[64];
-		strcopy(strBuffer, sizeof(strBuffer), strFilter);
-		Format(strFilter, sizeof(strFilter), "%N%s", iIndex, strBuffer);
-	}
-	
-	strcopy(strWord, iMaxLength, strFilter);
 }
