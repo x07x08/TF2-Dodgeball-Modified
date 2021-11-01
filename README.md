@@ -17,6 +17,11 @@ A modified version of the original YADB (Yet Another Dodgeball) plugin.
 # Commands
 For a list of commands, check the configuration file located in [`addons/sourcemod/configs/dodgeball`](https://github.com/x07x08/TF2_Dodgeball_Modified/tree/main/TF2_Dodgeball_Modified/addons/sourcemod/configs/dodgeball).
 
+# Installation
+Drag and drop the contents of a folder inside the `tf` folder.
+
+If you plan on using airblast prevention, make sure to also add the contents of [`cfg/sourcemod`](https://github.com/x07x08/TF2_Dodgeball_Modified/tree/main/TF2_Dodgeball_Modified/cfg/sourcemod).
+
 # Nuke model
 By default, the plugin uses a custom model for the `"nuke"` rocket class. It can be found here : [AlliedMods Link](https://forums.alliedmods.net/showpost.php?s=8fa72450fa0c4941c927d01d2d6245c9&p=2180141&postcount=350)
 
@@ -44,6 +49,7 @@ The OGF version also includes a few more rocket settings that are **not** presen
 - No damage on rockets if the target suicides / disconnects.
 - No damage on stolen rockets (toggleable with a CVar).
 - Commands to modify the movement parameters of a rocket.
+- Custom trails toggleable client-side.
 
 # Fixes
 - Fixed some errors caused by invalid client indexes in timers.
