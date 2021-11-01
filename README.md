@@ -1,6 +1,3 @@
-# TF2_Dodgeball_Modified
-A modified version of the original YADB (Yet Another Dodgeball) plugin.
-
 # Convars
 ```c
     tf_dodgeball_enablecfg        "sourcemod/dodgeball_enable.cfg"  - Config file to execute when enabling the Dodgeball game mode.
