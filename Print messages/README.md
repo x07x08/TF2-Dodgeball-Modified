@@ -1,10 +1,10 @@
-This plugin can be used to print messages and replace the client indexes given by the main dodgeball plugin.
+This subplugin can be used to print messages and replace the client indexes given by the main dodgeball plugin.
 
 To replace an index, surround it in a pair of `"##"` (without quotes). 
 
 [Example : `##@dead##`]
 
-Colors are supported too (uses `morecolors.inc` to compile).
+Colors are supported too (uses [`morecolors.inc`](https://github.com/DoctorMcKay/sourcemod-plugins/blob/master/scripting/include/morecolors.inc) to compile).
 
 [Example : `{steelblue}##@dead##{default}`]
 
