@@ -12,6 +12,7 @@
 #include <tf2>
 #include <tf2_stocks>
 #include <sdkhooks>
+#include <multicolors>
 
 // *********************************************************************************
 // CONSTANTS 
@@ -19,7 +20,7 @@
 // ---- Plugin-related constants ---------------------------------------------------
 #define PLUGIN_NAME             "[TF2] Dodgeball"
 #define PLUGIN_AUTHOR           "Damizean, edited by x07x08 with features from YADBP 1.4.2 & Redux"
-#define PLUGIN_VERSION          "1.4"
+#define PLUGIN_VERSION          "1.5"
 #define PLUGIN_CONTACT          "https://github.com/x07x08/TF2_Dodgeball_Modified"
 #define CVAR_FLAGS              FCVAR_PLUGIN
 
@@ -76,7 +77,8 @@ enum RocketFlags
     RocketFlag_CustomTrail      = 1 << 21,
     RocketFlag_CustomSprite     = 1 << 22,
     RocketFlag_RemoveParticles  = 1 << 23,
-    RocketFlag_ReplaceParticles = 1 << 24
+    RocketFlag_ReplaceParticles = 1 << 24,
+    RocketFlag_OnNoTargetCmd    = 1 << 25
 };
 
 enum ParticleAttachmentType
@@ -144,6 +146,7 @@ ConVar g_hCvarStealDistance;
 ConVar g_hCvarDelayPrevention;
 ConVar g_hCvarDelayPreventionTime;
 ConVar g_hCvarDelayPreventionSpeedup;
+ConVar g_hCvarNoTargetRedirectDamage;
 
 // -----<<< Gameplay >>>-----
 bool   g_bEnabled;                // Is the plugin enabled?
@@ -159,6 +162,7 @@ float  g_fStealDistance = 48.0;
 int    g_iEmptyModel = -1;
 bool   g_bClientHideTrails [MAXPLAYERS + 1];
 bool   g_bClientHideSprites[MAXPLAYERS + 1];
+int    g_iLastStealer;
 
 enum struct eRocketSteal
 {
@@ -180,10 +184,8 @@ char g_strWebPlayerUrl[256];
 bool        g_bRocketIsValid            [MAX_ROCKETS];
 int         g_iRocketEntity             [MAX_ROCKETS];
 int         g_iRocketFakeEntity         [MAX_ROCKETS];
-int         g_iRocketTrailEntity        [MAX_ROCKETS];
 int         g_iRocketRedCriticalEntity  [MAX_ROCKETS];
 int         g_iRocketBluCriticalEntity  [MAX_ROCKETS];
-int         g_iRocketSpriteEntity       [MAX_ROCKETS];
 int         g_iRocketTarget             [MAX_ROCKETS];
 int         g_iRocketSpawner            [MAX_ROCKETS];
 int         g_iRocketClass              [MAX_ROCKETS];
@@ -233,6 +235,7 @@ DataPack       g_hRocketClassCmdsOnSpawn      [MAX_ROCKET_CLASSES];
 DataPack       g_hRocketClassCmdsOnDeflect    [MAX_ROCKET_CLASSES];
 DataPack       g_hRocketClassCmdsOnKill       [MAX_ROCKET_CLASSES];
 DataPack       g_hRocketClassCmdsOnExplode    [MAX_ROCKET_CLASSES];
+DataPack       g_hRocketClassCmdsOnNoTarget   [MAX_ROCKET_CLASSES];
 StringMap      g_hRocketClassTrie;
 int            g_iRocketClassCount;
 float          g_fSavedParameters             [MAX_ROCKET_CLASSES][8];
@@ -293,17 +296,20 @@ public void OnPluginStart()
     char strModName[32]; GetGameFolderName(strModName, sizeof(strModName));
     if (!StrEqual(strModName, "tf")) SetFailState("This plugin is only for Team Fortress 2.");
     
+    LoadTranslations("yadbp.phrases.txt");
+    
     CreateConVar("tf_dodgeball_version", PLUGIN_VERSION, PLUGIN_NAME, _);
     g_hCvarEnabled = CreateConVar("tf_dodgeball_enabled", "1", "Enable Dodgeball on TFDB maps?", _, true, 0.0, true, 1.0);
     g_hCvarEnableCfgFile = CreateConVar("tf_dodgeball_enablecfg", "sourcemod/dodgeball_enable.cfg", "Config file to execute when enabling the Dodgeball game mode.");
     g_hCvarDisableCfgFile = CreateConVar("tf_dodgeball_disablecfg", "sourcemod/dodgeball_disable.cfg", "Config file to execute when disabling the Dodgeball game mode.");
-    g_hCvarStealPrevention = CreateConVar("tf_dodgeball_steal_prevention", "0", "Enable steal prevention?");
-    g_hCvarStealPreventionNumber = CreateConVar("tf_dodgeball_sp_number", "3", "How many steals before you get slayed?");
-    g_hCvarStealPreventionDamage = CreateConVar("tf_dodgeball_sp_damage", "0", "Reduce all damage on stolen rockets?");
-    g_hCvarStealDistance = CreateConVar("tf_dodgeball_sp_distance", "48.0", "The distance between players for a steal to register", FCVAR_NONE, true, 0.0, false);
-    g_hCvarDelayPrevention = CreateConVar("tf_dodgeball_delay_prevention", "1", "Enable delay prevention?");
-    g_hCvarDelayPreventionTime = CreateConVar("tf_dodgeball_dp_time", "5", "How much time (in seconds) before delay prevention activates?", FCVAR_NONE, true, 0.0, false);
-    g_hCvarDelayPreventionSpeedup = CreateConVar("tf_dodgeball_dp_speedup", "100", "How much speed (in hammer units per second) should the rocket gain when delayed?", FCVAR_NONE, true, 0.0, false);
+    g_hCvarStealPrevention = CreateConVar("tf_dodgeball_steal_prevention", "0", "Enable steal prevention?", _, true, 0.0, true, 1.0);
+    g_hCvarStealPreventionNumber = CreateConVar("tf_dodgeball_sp_number", "3", "How many steals before you get slayed?", _, true, 0.0, false);
+    g_hCvarStealPreventionDamage = CreateConVar("tf_dodgeball_sp_damage", "0", "Reduce all damage on stolen rockets?", _, true, 0.0, true, 1.0);
+    g_hCvarStealDistance = CreateConVar("tf_dodgeball_sp_distance", "48.0", "The distance between players for a steal to register.", _, true, 0.0, false);
+    g_hCvarDelayPrevention = CreateConVar("tf_dodgeball_delay_prevention", "1", "Enable delay prevention?", _, true, 0.0, true, 1.0);
+    g_hCvarDelayPreventionTime = CreateConVar("tf_dodgeball_dp_time", "5", "How much time (in seconds) before delay prevention activates?", _, true, 0.0, false);
+    g_hCvarDelayPreventionSpeedup = CreateConVar("tf_dodgeball_dp_speedup", "100", "How much speed (in hammer units per second) should the rocket gain when delayed?", _, true, 0.0, false);
+    g_hCvarNoTargetRedirectDamage = CreateConVar("tf_dodgeball_redirect_damage", "1", "Reduce all damage when a rocket has an invalid target?", _, true, 0.0, true, 1.0);
     
     g_hCvarStealDistance.AddChangeHook(tf2dodgeball_cvarhook);
     
@@ -372,7 +378,7 @@ void EnableDodgeBall()
     {
         // Parse configuration files
         char strMapName[64]; GetCurrentMap(strMapName, sizeof(strMapName));
-        char strMapFile[PLATFORM_MAX_PATH]; Format(strMapFile, sizeof(strMapFile), "%s.cfg", strMapName);
+        char strMapFile[PLATFORM_MAX_PATH]; FormatEx(strMapFile, sizeof(strMapFile), "%s.cfg", strMapName);
         ParseConfigurations();
         ParseConfigurations(strMapFile);
         
@@ -384,7 +390,7 @@ void EnableDodgeBall()
         
         // Hook events and info_target outputs.
         HookEvent("teamplay_round_start", OnRoundStart, EventHookMode_PostNoCopy);
-        HookEvent("teamplay_setup_finished", OnSetupFinished, EventHookMode_PostNoCopy);
+        HookEvent("arena_round_start", OnSetupFinished, EventHookMode_PostNoCopy); // teamplay_setup_finished will not fire on maps that lack team_round_timer
         HookEvent("teamplay_round_win", OnRoundEnd, EventHookMode_PostNoCopy);
         HookEvent("player_spawn", OnPlayerSpawn, EventHookMode_Post);
         HookEvent("player_death", OnPlayerDeath, EventHookMode_Pre);
@@ -394,6 +400,9 @@ void EnableDodgeBall()
         
         g_iEmptyModel = PrecacheModel("models/empty.mdl", true);
         PrecacheParticleSystem("rockettrail_fire"); // Why isn't this particle already precached?
+        
+        AddMultiTargetFilter("@stealer", MLTargetFilterStealer, "last stealer", false);
+        AddMultiTargetFilter("@!stealer", MLTargetFilterStealer, "non last stealer", false); // Sounds weird not gonna lie
         
         // Precache sounds
         PrecacheSound(SOUND_DEFAULT_SPAWN, true);
@@ -462,13 +471,16 @@ void DisableDodgeBall()
         
         // Unhook events and info_target outputs;
         UnhookEvent("teamplay_round_start", OnRoundStart, EventHookMode_PostNoCopy);
-        UnhookEvent("teamplay_setup_finished", OnSetupFinished, EventHookMode_PostNoCopy);
+        UnhookEvent("arena_round_start", OnSetupFinished, EventHookMode_PostNoCopy);
         UnhookEvent("teamplay_round_win", OnRoundEnd, EventHookMode_PostNoCopy);
         UnhookEvent("player_spawn", OnPlayerSpawn, EventHookMode_Post);
         UnhookEvent("player_death", OnPlayerDeath, EventHookMode_Pre);
         UnhookEvent("post_inventory_application", OnPlayerInventory, EventHookMode_Post);
         UnhookEvent("teamplay_broadcast_audio", OnBroadcastAudio, EventHookMode_Pre);
         UnhookEvent("object_deflected", OnObjectDeflected);
+        
+        RemoveMultiTargetFilter("@stealer", MLTargetFilterStealer);
+        RemoveMultiTargetFilter("@!stealer", MLTargetFilterStealer);
         
         // Execute enable config file
         char strCfgFile[64]; g_hCvarDisableCfgFile.GetString(strCfgFile, sizeof(strCfgFile));
@@ -492,6 +504,11 @@ public void OnClientDisconnect(int client)
 	if (client == g_iLastDeadClient)
 	{
 		g_iLastDeadClient = 0;
+	}
+	
+	if (client == g_iLastStealer)
+	{
+		g_iLastStealer = 0;
 	}
 	
 	g_bClientHideTrails [client] = false;
@@ -745,11 +762,6 @@ public Action OnObjectDeflected(Event hEvent, char[] strEventName, bool bDontBro
 	
 	if (iIndex != -1)
 	{
-		if (g_iRocketFlags[iIndex] & RocketFlag_IsNeutral)
-		{
-			SetEntProp(iEntity, Prop_Send, "m_iTeamNum", 1, 1);
-		}
-		
 		if (g_iRocketFlags[iIndex] & RocketFlag_ResetBounces)
 		{
 			g_iRocketBounces[iIndex] = 0;
@@ -780,6 +792,11 @@ public Action OnObjectDeflected(Event hEvent, char[] strEventName, bool bDontBro
 					}
 				}
 			}
+		}
+		
+		if (g_iRocketFlags[iIndex] & RocketFlag_IsNeutral)
+		{
+			SetEntProp(iEntity, Prop_Send, "m_iTeamNum", 1, 1);
 		}
 	}
 }
@@ -893,8 +910,11 @@ public void CreateRocket(int iSpawnerEntity, int iSpawnerClass, int iTeam)
                 if (iOtherEntity && IsValidEntity(iOtherEntity))
                 {
                     SetEntProp(iEntity, Prop_Send, "m_nModelIndexOverrides", g_iEmptyModel);
-                    SetEntityModel(iOtherEntity, "models/weapons/w_models/w_rocket.mdl");
                     
+                    SetEntityModel(iOtherEntity, "models/weapons/w_models/w_rocket.mdl");
+                    SetEntProp(iOtherEntity, Prop_Send, "m_CollisionGroup", 0);    // COLLISION_GROUP_NONE
+                    SetEntProp(iOtherEntity, Prop_Send, "m_usSolidFlags", 0x0004); // FSOLID_NOT_SOLID
+                    SetEntProp(iOtherEntity, Prop_Send, "m_nSolidType", 0);        // SOLID_NONE
                     TeleportEntity(iOtherEntity, fPosition, fAngles, view_as<float>({0.0, 0.0, 0.0}));
                     g_iRocketFakeEntity[iIndex] = EntIndexToEntRef(iOtherEntity);
                     DispatchSpawn(iOtherEntity);
@@ -962,8 +982,6 @@ public void CreateRocket(int iSpawnerEntity, int iSpawnerClass, int iTeam)
                 {
                     TeleportEntity(iTrailEntity, fPosition, fAngles, view_as<float>({0.0, 0.0, 0.0}));
                     DispatchKeyValue(iTrailEntity, "effect_name", g_strRocketClassTrail[iClass]);
-                    
-                    g_iRocketTrailEntity[iIndex] = EntIndexToEntRef(iTrailEntity);
                     DispatchSpawn(iTrailEntity);
                     ActivateEntity(iTrailEntity);
                     
@@ -1016,8 +1034,6 @@ public void CreateRocket(int iSpawnerEntity, int iSpawnerClass, int iTeam)
                     DispatchKeyValue(iSpriteEntity, "renderamt", "255");
                     DispatchKeyValue(iSpriteEntity, "rendermode", "3");
                     SetEntPropFloat(iSpriteEntity, Prop_Send, "m_flTextureRes", 0.05);
-                    
-                    g_iRocketSpriteEntity[iIndex] = EntIndexToEntRef(iSpriteEntity);
                     
                     if (TestFlags(iFlags, RocketFlag_RemoveParticles))
                     {
@@ -1218,7 +1234,23 @@ void HomingRocketThink(int iIndex)
         iTarget = SelectTarget(iTargetTeam);
         if (!IsValidClient(iTarget, true)) return;
         g_iRocketTarget[iIndex] = EntIndexToEntRef(iTarget);
-        SetEntDataFloat(iEntity, FindSendPropInfo("CTFProjectile_Rocket", "m_iDeflected") + 4, 0.0, true);
+        EmitRocketSound(RocketSound_Alert, iClass, iEntity, iTarget, iFlags);
+        
+        if (TestFlags(iFlags, RocketFlag_OnNoTargetCmd))
+        {
+            int iClient = GetEntPropEnt(iEntity, Prop_Send, "m_hOwnerEntity");
+            if (!IsValidClient(iClient))
+            {
+                iClient = 0;
+            }
+            
+            ExecuteCommands(g_hRocketClassCmdsOnNoTarget[iClass], iClass, iEntity, iClient, iTarget, g_iLastDeadClient, g_fRocketSpeed[iIndex], iDeflectionCount, g_fRocketMphSpeed[iIndex]);
+        }
+        
+        if (g_hCvarNoTargetRedirectDamage.BoolValue)
+        {
+            SetEntDataFloat(iEntity, FindSendPropInfo("CTFProjectile_Rocket", "m_iDeflected") + 4, 0.0, true);
+        }
     }
     // Has the rocket been deflected recently? If so, set new target.
     else if ((iDeflectionCount > g_iRocketDeflections[iIndex]))
@@ -1252,36 +1284,39 @@ void HomingRocketThink(int iIndex)
             iClient = 0;
         }
         
-        if ((iFlags & RocketFlag_IsNeutral) && iDeflectionCount == 1)
+        if (iDeflectionCount == 1)
         {
-            SetEntProp(iEntity, Prop_Send, "m_iTeamNum", 1, 1);
-        }
-        
-        if ((iFlags & RocketFlag_ResetBounces) && iDeflectionCount == 1)
-        {
-            g_iRocketBounces[iIndex] = 0;
-        }
-        
-        if ((iFlags & RocketFlag_ReplaceParticles) && iDeflectionCount == 1)
-        {
-            bool bCritical = !!GetEntProp(iEntity, Prop_Send, "m_bCritical");
-            
-            if (bCritical)
+            if (iFlags & RocketFlag_IsNeutral)
             {
-                int iRedCriticalEntity = EntRefToEntIndex(g_iRocketRedCriticalEntity[iIndex]);
-                int iBluCriticalEntity = EntRefToEntIndex(g_iRocketBluCriticalEntity[iIndex]);
+                SetEntProp(iEntity, Prop_Send, "m_iTeamNum", 1, 1);
+            }
+            
+            if (iFlags & RocketFlag_ResetBounces)
+            {
+                g_iRocketBounces[iIndex] = 0;
+            }
+            
+            if (iFlags & RocketFlag_ReplaceParticles)
+            {
+                bool bCritical = !!GetEntProp(iEntity, Prop_Send, "m_bCritical");
                 
-                if (iRedCriticalEntity != -1 && iBluCriticalEntity != -1)
+                if (bCritical)
                 {
-                    if (iTeam == view_as<int>(TFTeam_Red))
+                    int iRedCriticalEntity = EntRefToEntIndex(g_iRocketRedCriticalEntity[iIndex]);
+                    int iBluCriticalEntity = EntRefToEntIndex(g_iRocketBluCriticalEntity[iIndex]);
+                    
+                    if (iRedCriticalEntity != -1 && iBluCriticalEntity != -1)
                     {
-                        AcceptEntityInput(iBluCriticalEntity, "Stop");
-                        AcceptEntityInput(iRedCriticalEntity, "Start");
-                    }
-                    else if (iTeam == view_as<int>(TFTeam_Blue))
-                    {
-                        AcceptEntityInput(iBluCriticalEntity, "Start");
-                        AcceptEntityInput(iRedCriticalEntity, "Stop");
+                        if (iTeam == view_as<int>(TFTeam_Red))
+                        {
+                            AcceptEntityInput(iBluCriticalEntity, "Stop");
+                            AcceptEntityInput(iRedCriticalEntity, "Start");
+                        }
+                        else if (iTeam == view_as<int>(TFTeam_Blue))
+                        {
+                            AcceptEntityInput(iBluCriticalEntity, "Start");
+                            AcceptEntityInput(iRedCriticalEntity, "Stop");
+                        }
                     }
                 }
             }
@@ -1529,14 +1564,17 @@ void DestroyRocketClasses()
         DataPack hCmdOnKill    = g_hRocketClassCmdsOnKill[iIndex];
         DataPack hCmdOnExplode = g_hRocketClassCmdsOnExplode[iIndex];
         DataPack hCmdOnDeflect = g_hRocketClassCmdsOnDeflect[iIndex];
+        DataPack hCmdOnNoTarget = g_hRocketClassCmdsOnNoTarget[iIndex];
         if (hCmdOnSpawn   != null) delete hCmdOnSpawn;
         if (hCmdOnKill    != null) delete hCmdOnKill;
         if (hCmdOnExplode != null) delete hCmdOnExplode;
         if (hCmdOnDeflect != null) delete hCmdOnDeflect;
+        if (hCmdOnNoTarget != null) delete hCmdOnNoTarget;
         g_hRocketClassCmdsOnSpawn[iIndex]   = null;
         g_hRocketClassCmdsOnKill[iIndex]    = null;
         g_hRocketClassCmdsOnExplode[iIndex] = null;
         g_hRocketClassCmdsOnDeflect[iIndex] = null;
+        g_hRocketClassCmdsOnNoTarget[iIndex] = null;
     }
     g_iRocketClassCount = 0;
     g_hRocketClassTrie.Clear();
@@ -1593,7 +1631,7 @@ void PopulateSpawnPoints()
             g_iSpawnPointsRedEntity[g_iSpawnPointsRedCount] = iEntity;
             g_iSpawnPointsRedCount++;
         }
-        if ((StrContains(strName, "rocket_spawn_blue") != -1) || (StrContains(strName, "tf_dodgeball_blu") != -1))
+        if ((StrContains(strName, "rocket_spawn_blu") != -1) || (StrContains(strName, "tf_dodgeball_blu") != -1))
         {
             // Find most appropiate spawner class for this entity.
             int iIndex = FindSpawnerByName(strName);
@@ -1680,7 +1718,7 @@ public Action CmdExplosion(int iArgs)
     }
     else
     {
-        PrintToServer("%s", g_bEnabled ? "Usage: tf_dodgeball_explosion <client index>" : "Command disabled");
+        PrintToServer("%t", g_bEnabled ? "Command_DBExplosion_Usage" : "Command_Disabled");
     }
     
     return Plugin_Handled;
@@ -1744,7 +1782,7 @@ public Action CmdShockwave(int iArgs)
     }
     else
     {
-        PrintToServer("%s", g_bEnabled ? "Usage: tf_dodgeball_shockwave <client index> <damage> <push strength> <radius> <falloff>" : "Command disabled.");
+        PrintToServer("%t", g_bEnabled ? "Command_DBShockwave_Usage" : "Command_Disabled");
     }
     
     return Plugin_Handled;
@@ -1802,7 +1840,7 @@ public Action CmdChangeSpeed(int iClient, int iArgs)
 	}
 	else
 	{
-		ReplyToCommand(iClient, "%s", g_bEnabled ? "Usage: tf_dodgeball_rocketspeed <rocket class index> <speed> <speed increment> <speed limit>" : "Command Disabled");
+		CReplyToCommand(iClient, "%t", g_bEnabled ? "Command_DBRocketSpeed_Usage" : "Command_Disabled");
 	}
 	
 	return Plugin_Handled;
@@ -1860,7 +1898,7 @@ public Action CmdChangeTurnRate(int iClient, int iArgs)
 	}
 	else
 	{
-		ReplyToCommand(iClient, "%s", g_bEnabled ? "Usage: tf_dodgeball_rocketturnrate <rocket class index> <turn rate> <turn rate increment> <turn rate limit>" : "Command Disabled");
+		CReplyToCommand(iClient, "%t", g_bEnabled ? "Command_DBRocketTurnRate_Usage" : "Command_Disabled");
 	}
 	
 	return Plugin_Handled;
@@ -1918,7 +1956,7 @@ public Action CmdChangeElevation(int iClient, int iArgs)
 	}
 	else
 	{
-		ReplyToCommand(iClient, "%s", g_bEnabled ? "Usage: tf_dodgeball_rocketelevation <rocket class index> <elevation rate> <elevation limit>" : "Command Disabled");
+		CReplyToCommand(iClient, "%t", g_bEnabled ? "Command_DBRocketElevation_Usage" : "Command_Disabled");
 	}
 	
 	return Plugin_Handled;
@@ -1963,7 +2001,7 @@ public Action CmdChangeSpawners(int iClient, int iArgs)
 	}
 	else
 	{
-		ReplyToCommand(iClient, "%s", g_bEnabled ? "Usage: tf_dodgeball_spawners <max rockets> <rocket class index> <chances>" : "Command Disabled");
+		CReplyToCommand(iClient, "%t", g_bEnabled ? "Command_DBSpawners_Usage" : "Command_Disabled");
 	}
 	
 	return Plugin_Handled;
@@ -1978,14 +2016,15 @@ public Action CmdRefresh(int iClient, int iArgs)
 		DestroySpawners();
 		// Then reinitialize
 		char strMapName[64]; GetCurrentMap(strMapName, sizeof(strMapName));
-		char strMapFile[PLATFORM_MAX_PATH]; Format(strMapFile, sizeof(strMapFile), "%s.cfg", strMapName);
+		char strMapFile[PLATFORM_MAX_PATH]; FormatEx(strMapFile, sizeof(strMapFile), "%s.cfg", strMapName);
 		ParseConfigurations();
 		ParseConfigurations(strMapFile);
-		PrintToChatAll("\x05%N\01 refreshed the \x05dodgeball configs\01.", iClient);
+		PopulateSpawnPoints();
+		CPrintToChatAll("%t", "Command_DBRefresh_Done", iClient);
 	}
 	else
 	{
-		ReplyToCommand(iClient, "%s", g_bEnabled ? "Usage: tf_dodgeball_refresh" : "Command Disabled");
+		CReplyToCommand(iClient, "%t", g_bEnabled ? "Command_DBRefresh_Usage" : "Command_Disabled");
 	}
 	
 	return Plugin_Handled;
@@ -1999,7 +2038,7 @@ public Action CmdDestroyRockets(int iClient, int iArgs)
 	}
 	else
 	{
-		ReplyToCommand(iClient, "%s", g_bEnabled ? "Usage: tf_dodgeball_destroyrockets" : "Command Disabled");
+		CReplyToCommand(iClient, "%t", g_bEnabled ? "Command_DBRocketDestroy_Usage" : "Command_Disabled");
 	}
 	
 	return Plugin_Handled;
@@ -2144,7 +2183,7 @@ public Action CmdOtherParams(int iClient, int iArgs)
 	}
 	else
 	{
-		ReplyToCommand(iClient, "%s", g_bEnabled ? "Usage: tf_dodgeball_rocketotherparams <rocket class index> <neutral rocket 0/1> <keep direction 0/1> <teamless hits 0/1> <reset bounces 0/1> <max bounces>" : "Command Disabled");
+		CReplyToCommand(iClient, "%t", g_bEnabled ? "Command_DBRocketOtherParams_Usage" : "Command_Disabled");
 	}
 	
 	return Plugin_Handled;
@@ -2162,11 +2201,11 @@ public Action CmdHideTrails(int iClient, int iArgs)
 	{
 		g_bClientHideTrails[iClient] = !g_bClientHideTrails[iClient];
 		
-		PrintToChat(iClient, "\x05[YADBP]\x01 Custom rocket particle trails are now %s.", g_bClientHideTrails[iClient] ? "hidden" : "visible");
+		CPrintToChat(iClient, "%t", g_bClientHideTrails[iClient] ? "Command_DBHideParticles_Hidden" : "Command_DBHideParticles_Visible");
 	}
 	else
 	{
-		ReplyToCommand(iClient, "%s", g_bEnabled ? "Usage: sm_hiderockettrails" : "Command Disabled");
+		CReplyToCommand(iClient, "%t", g_bEnabled ? "Command_DBHideParticles_Usage" : "Command_Disabled");
 	}
 	
 	return Plugin_Handled;
@@ -2184,11 +2223,11 @@ public Action CmdHideSprites(int iClient, int iArgs)
 	{
 		g_bClientHideSprites[iClient] = !g_bClientHideSprites[iClient];
 		
-		PrintToChat(iClient, "\x05[YADBP]\x01 Custom rocket sprite trails are now %s.", g_bClientHideSprites[iClient] ? "hidden" : "visible");
+		CPrintToChat(iClient, "%t", g_bClientHideSprites[iClient] ? "Command_DBHideSprites_Hidden" : "Command_DBHideSprites_Visible");
 	}
 	else
 	{
-		ReplyToCommand(iClient, "%s", g_bEnabled ? "Usage: sm_hiderocketsprites" : "Command Disabled");
+		CReplyToCommand(iClient, "%t", g_bEnabled ? "Command_DBHideSprites_Usage" : "Command_Disabled");
 	}
 	
 	return Plugin_Handled;
@@ -2208,14 +2247,14 @@ void ExecuteCommands(DataPack hDataPack, int iClass, int iRocket, int iOwner, in
         char strCmd[256], strBuffer[32];
         hDataPack.ReadString(strCmd, sizeof(strCmd));
         ReplaceString(strCmd, sizeof(strCmd), "@name", g_strRocketClassLongName[iClass]);
-        Format(strBuffer, sizeof(strBuffer), "%i", iRocket);                ReplaceString(strCmd, sizeof(strCmd), "@rocket", strBuffer);
-        Format(strBuffer, sizeof(strBuffer), "%i", iOwner);                 ReplaceString(strCmd, sizeof(strCmd), "@owner", strBuffer);
-        Format(strBuffer, sizeof(strBuffer), "%i", iTarget);                ReplaceString(strCmd, sizeof(strCmd), "@target", strBuffer);
-        Format(strBuffer, sizeof(strBuffer), "%i", iLastDead);              ReplaceString(strCmd, sizeof(strCmd), "@dead", strBuffer);
-        Format(strBuffer, sizeof(strBuffer), "%.2f", fSpeed);               ReplaceString(strCmd, sizeof(strCmd), "@speed", strBuffer);
-        Format(strBuffer, sizeof(strBuffer), "%i", iNumDeflections);        ReplaceString(strCmd, sizeof(strCmd), "@deflections", strBuffer);
-        Format(strBuffer, sizeof(strBuffer), "%i", RoundFloat(fMphSpeed));  ReplaceString(strCmd, sizeof(strCmd), "@mphspeed", strBuffer);
-        Format(strBuffer, sizeof(strBuffer), "%.2f", fMphSpeed / 0.042614); ReplaceString(strCmd, sizeof(strCmd), "@nocapspeed", strBuffer);
+        FormatEx(strBuffer, sizeof(strBuffer), "%i", iRocket);                ReplaceString(strCmd, sizeof(strCmd), "@rocket", strBuffer);
+        FormatEx(strBuffer, sizeof(strBuffer), "%i", iOwner);                 ReplaceString(strCmd, sizeof(strCmd), "@owner", strBuffer);
+        FormatEx(strBuffer, sizeof(strBuffer), "%i", iTarget);                ReplaceString(strCmd, sizeof(strCmd), "@target", strBuffer);
+        FormatEx(strBuffer, sizeof(strBuffer), "%i", iLastDead);              ReplaceString(strCmd, sizeof(strCmd), "@dead", strBuffer);
+        FormatEx(strBuffer, sizeof(strBuffer), "%.2f", fSpeed);               ReplaceString(strCmd, sizeof(strCmd), "@speed", strBuffer);
+        FormatEx(strBuffer, sizeof(strBuffer), "%i", iNumDeflections);        ReplaceString(strCmd, sizeof(strCmd), "@deflections", strBuffer);
+        FormatEx(strBuffer, sizeof(strBuffer), "%i", RoundFloat(fMphSpeed));  ReplaceString(strCmd, sizeof(strCmd), "@mphspeed", strBuffer);
+        FormatEx(strBuffer, sizeof(strBuffer), "%.2f", fMphSpeed / 0.042614); ReplaceString(strCmd, sizeof(strCmd), "@nocapspeed", strBuffer);
         ServerCommand(strCmd);
     }
 }
@@ -2241,7 +2280,7 @@ bool ParseConfigurations(char[] strConfigFile = "general.cfg")
     // Parse configuration
     char strPath[PLATFORM_MAX_PATH];
     char strFileName[PLATFORM_MAX_PATH];
-    Format(strFileName, sizeof(strFileName), "configs/dodgeball/%s", strConfigFile);
+    FormatEx(strFileName, sizeof(strFileName), "configs/dodgeball/%s", strConfigFile);
     BuildPath(Path_SM, strPath, sizeof(strPath), strFileName);
     
     // Try to parse if it exists
@@ -2420,6 +2459,8 @@ void ParseClasses(KeyValues kvConfig)
         if ((hCmds = ParseCommands(strBuffer)) != null) { iFlags |= RocketFlag_OnKillCmd; g_hRocketClassCmdsOnKill[iIndex] = hCmds; }
         kvConfig.GetString("on explode", strBuffer, sizeof(strBuffer));
         if ((hCmds = ParseCommands(strBuffer)) != null) { iFlags |= RocketFlag_OnExplodeCmd; g_hRocketClassCmdsOnExplode[iIndex] = hCmds; }
+        kvConfig.GetString("on no target", strBuffer, sizeof(strBuffer));
+        if ((hCmds = ParseCommands(strBuffer)) != null) { iFlags |= RocketFlag_OnNoTargetCmd; g_hRocketClassCmdsOnNoTarget[iIndex] = hCmds; }
         
         // Done
         g_hRocketClassTrie.SetValue(strName, iIndex);
@@ -2454,7 +2495,7 @@ void ParseSpawners(KeyValues kvConfig)
         g_hSavedChancesTable[iIndex] = new ArrayList();
         for (int iClassIndex = 0; iClassIndex < g_iRocketClassCount; iClassIndex++)
         {
-            Format(strBuffer, sizeof(strBuffer), "%s%%", g_strRocketClassName[iClassIndex]);
+            FormatEx(strBuffer, sizeof(strBuffer), "%s%%", g_strRocketClassName[iClassIndex]);
             g_hSpawnersChancesTable[iIndex].Push(kvConfig.GetNum(strBuffer, 0));
             g_hSavedChancesTable[iIndex].Push(kvConfig.GetNum(strBuffer, 0));
         }
@@ -2757,7 +2798,7 @@ stock void ShowHiddenMOTDPanel(int iClient, char[] strTitle, char[] strMsg, char
 stock void PrecacheSoundEx(char[] strFileName, bool bPreload = false, bool bAddToDownloadTable = false)
 {
     char strFinalPath[PLATFORM_MAX_PATH]; 
-    Format(strFinalPath, sizeof(strFinalPath), "sound/%s", strFileName);
+    FormatEx(strFinalPath, sizeof(strFinalPath), "sound/%s", strFileName);
     PrecacheSound(strFileName, bPreload);
     if (bAddToDownloadTable == true) AddFileToDownloadsTable(strFinalPath);
 }
@@ -2772,7 +2813,7 @@ stock void PrecacheModelEx(char[] strFileName, bool bPreload = false, bool bAddT
     if (bAddToDownloadTable)
     {
         char strDepFileName[PLATFORM_MAX_PATH];
-        Format(strDepFileName, sizeof(strDepFileName), "%s.res", strFileName);
+        FormatEx(strDepFileName, sizeof(strDepFileName), "%s.res", strFileName);
         
         if (FileExists(strDepFileName))
         {
@@ -2871,24 +2912,47 @@ void checkStolenRocket(int clientId, int entId)
 		if (bStealArray[clientId].rocketsStolen < g_hCvarStealPreventionNumber.IntValue)
 		{
 			bStealArray[clientId].rocketsStolen++;
-			CreateTimer(0.1, tStealTimer, GetClientUserId(clientId), TIMER_FLAG_NO_MAPCHANGE);
 			SlapPlayer(clientId, 0, true);
-			PrintToChat(clientId, "\x03Do not steal rockets. [Warning %i/%i]", bStealArray[clientId].rocketsStolen, g_hCvarStealPreventionNumber.IntValue);
+			CPrintToChat(clientId, "%t", "DBSteal_Warning_Client", bStealArray[clientId].rocketsStolen, g_hCvarStealPreventionNumber.IntValue);
+			MC_SkipNextClient(clientId);
+			CPrintToChatAll("%t", "DBSteal_Announce_All", clientId, iTarget);
+			bStealArray[clientId].stoleRocket = false;
 		}
 		else
 		{
 			ForcePlayerSuicide(clientId);
-			PrintToChat(clientId, "\x03You have been slain for stealing rockets.");
-			PrintToChatAll("\x03%N was slain for stealing rockets.", clientId);
+			CPrintToChat(clientId, "%t", "DBSteal_Slay_Client");
+			MC_SkipNextClient(clientId);
+			CPrintToChatAll("%t", "DBSteal_Announce_Slay_All", clientId);
 		}
 		g_bIsRocketStolen[entId] = true;
+		g_iLastStealer = clientId;
 	}
 }
 
-public Action tStealTimer(Handle hTimer, any iClientUid)
+public bool MLTargetFilterStealer(const char[] strPattern, ArrayList hClients)
 {
-	int iClient = GetClientOfUserId(iClientUid);
-	bStealArray[iClient].stoleRocket = false;
+	bool bReverse = (StrContains(strPattern, "!", false) == 1);
+	
+	for (int iClient = 1; iClient <= MaxClients; iClient++)
+	{
+		if (IsClientInGame(iClient) && (hClients.FindValue(iClient) == -1))
+		{
+			if (iClient == g_iLastStealer)
+			{
+				if (!bReverse)
+				{
+					hClients.Push(iClient);
+				}
+			}
+			else if (bReverse)
+			{
+				hClients.Push(iClient);
+			}
+		}
+	}
+	
+	return !!hClients.Length;
 }
 
 // Asherkin's RocketBounce
@@ -3007,7 +3071,7 @@ void checkRoundDelays(int entId)
 		g_fRocketSpeed[entId] += g_hCvarDelayPreventionSpeedup.FloatValue;
 		if (!g_bPreventingDelay[entId])
 		{
-			PrintToChatAll("\x03%N is delaying, the rocket will now speed up.", iTarget);
+			CPrintToChatAll("%t", "DBDelay_Announce_All", iTarget);
 			EmitSoundToAll(SOUND_DEFAULT_SPEEDUP, iEntity, SNDCHAN_AUTO, SNDLEVEL_GUNFIRE);
 		}
 		g_bPreventingDelay[entId] = true;

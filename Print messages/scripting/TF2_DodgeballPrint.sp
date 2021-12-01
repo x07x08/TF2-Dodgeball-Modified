@@ -1,7 +1,7 @@
 #pragma semicolon 1
 
 #define PLUGIN_AUTHOR "x07x08"
-#define PLUGIN_VERSION "1.01"
+#define PLUGIN_VERSION "1.02"
 
 #include <sourcemod>
 #include <morecolors>
@@ -50,7 +50,7 @@ public Action CmdPrintMessage(int iClient, int iArgs)
 				{
 					if (IsClientInGame(iIndex))
 					{
-						Format(strStrings[i], sizeof(strStrings[]), "%N", iIndex);
+						FormatEx(strStrings[i], sizeof(strStrings[]), "%N", iIndex);
 					}
 				}
 			}
@@ -101,7 +101,7 @@ public Action CmdPrintMessageClient(int iClient, int iArgs)
 				{
 					if (IsClientInGame(iIndex))
 					{
-						Format(strStrings[i], sizeof(strStrings[]), "%N", iIndex);
+						FormatEx(strStrings[i], sizeof(strStrings[]), "%N", iIndex);
 					}
 				}
 			}
