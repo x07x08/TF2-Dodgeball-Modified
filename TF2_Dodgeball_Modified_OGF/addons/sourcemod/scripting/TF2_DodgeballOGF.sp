@@ -20,7 +20,7 @@
 // ---- Plugin-related constants ---------------------------------------------------
 #define PLUGIN_NAME             "[TF2] Dodgeball"
 #define PLUGIN_AUTHOR           "Damizean, edited by x07x08 with features from YADBP 1.4.2 & Redux"
-#define PLUGIN_VERSION          "1.5 OGF"
+#define PLUGIN_VERSION          "1.5.1 OGF"
 #define PLUGIN_CONTACT          "https://github.com/x07x08/TF2_Dodgeball_Modified"
 #define CVAR_FLAGS              FCVAR_PLUGIN
 
@@ -900,7 +900,6 @@ public void CreateRocket(int iSpawnerEntity, int iSpawnerClass, int iTeam)
             GetAngleVectors(fAngles, fDirection, NULL_VECTOR, NULL_VECTOR);
             
             // Setup rocket entity.
-            SetEntPropEnt(iEntity, Prop_Send, "m_hOwnerEntity", 0);
             SetEntProp(iEntity,    Prop_Send, "m_bCritical",    (GetURandomFloatRange(0.0, 100.0) <= g_fRocketClassCritChance[iClass])? 1 : 0, 1);
             SetEntProp(iEntity,    Prop_Send, "m_iTeamNum",     (TestFlags(iFlags, RocketFlag_IsNeutral))? 1 : iTeam, 1);
             SetEntProp(iEntity,    Prop_Send, "m_iDeflected",   1);
@@ -909,6 +908,13 @@ public void CreateRocket(int iSpawnerEntity, int iSpawnerClass, int iTeam)
             // Setup rocket structure with the newly created entity.
             int iTargetTeam = (TestFlags(iFlags, RocketFlag_IsNeutral))? 0 : GetAnalogueTeam(iTeam);
             int iTarget     = SelectTarget(iTargetTeam);
+            
+            // In order for the object_deflected event to fire, the old (previous) owner must be a valid client
+            // I'm doing this as I don't want the first object_deflected event to be skipped
+            int iTeamRocketTarget = GetClientTeam(iTarget);
+            int iRocketOwner      = SelectTarget(GetAnalogueTeam(iTeamRocketTarget));
+            SetEntPropEnt(iEntity, Prop_Send, "m_hOwnerEntity", iRocketOwner);
+            
             float fModifier = CalculateModifier(iClass, 0);
             g_bRocketIsValid[iIndex]            = true;
             g_iRocketFlags[iIndex]              = iFlags;
@@ -1279,44 +1285,6 @@ void HomingRocketThink(int iIndex)
         // Set new target & deflection count
         g_iRocketAltDeflections[iIndex]     = iDeflectionCount;
         g_fRocketLastDeflectionTime[iIndex] = GetGameTime();
-        
-        if (iDeflectionCount == 1)
-        {
-            if (iFlags & RocketFlag_IsNeutral)
-            {
-                SetEntProp(iEntity, Prop_Send, "m_iTeamNum", 1, 1);
-            }
-            
-            if (iFlags & RocketFlag_ResetBounces)
-            {
-                g_iRocketBounces[iIndex] = 0;
-            }
-            
-            if (iFlags & RocketFlag_ReplaceParticles)
-            {
-                bool bCritical = !!GetEntProp(iEntity, Prop_Send, "m_bCritical");
-                
-                if (bCritical)
-                {
-                    int iRedCriticalEntity = EntRefToEntIndex(g_iRocketRedCriticalEntity[iIndex]);
-                    int iBluCriticalEntity = EntRefToEntIndex(g_iRocketBluCriticalEntity[iIndex]);
-                    
-                    if (iRedCriticalEntity != -1 && iBluCriticalEntity != -1)
-                    {
-                        if (iTeam == view_as<int>(TFTeam_Red))
-                        {
-                            AcceptEntityInput(iBluCriticalEntity, "Stop");
-                            AcceptEntityInput(iRedCriticalEntity, "Start");
-                        }
-                        else if (iTeam == view_as<int>(TFTeam_Blue))
-                        {
-                            AcceptEntityInput(iBluCriticalEntity, "Start");
-                            AcceptEntityInput(iRedCriticalEntity, "Stop");
-                        }
-                    }
-                }
-            }
-        }
     }
     else
     {
