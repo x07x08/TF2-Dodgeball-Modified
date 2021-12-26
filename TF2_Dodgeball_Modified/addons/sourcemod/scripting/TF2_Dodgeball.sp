@@ -20,7 +20,7 @@
 // ---- Plugin-related constants ---------------------------------------------------
 #define PLUGIN_NAME             "[TF2] Dodgeball"
 #define PLUGIN_AUTHOR           "Damizean, edited by x07x08 with features from YADBP 1.4.2 & Redux"
-#define PLUGIN_VERSION          "1.5.1"
+#define PLUGIN_VERSION          "1.5.2"
 #define PLUGIN_CONTACT          "https://github.com/x07x08/TF2_Dodgeball_Modified"
 #define CVAR_FLAGS              FCVAR_PLUGIN
 
@@ -194,6 +194,7 @@ float       g_fRocketSpeed              [MAX_ROCKETS];
 float       g_fRocketMphSpeed           [MAX_ROCKETS];
 float       g_fRocketDirection          [MAX_ROCKETS][3];
 int         g_iRocketDeflections        [MAX_ROCKETS];
+int         g_iRocketEventDeflections   [MAX_ROCKETS];
 float       g_fRocketLastDeflectionTime [MAX_ROCKETS];
 float       g_fRocketLastBeepTime       [MAX_ROCKETS];
 int         g_iLastCreatedRocket;
@@ -757,11 +758,13 @@ public Action OnBroadcastAudio(Event hEvent, char[] strEventName, bool bDontBroa
 
 public Action OnObjectDeflected(Event hEvent, char[] strEventName, bool bDontBroadcast)
 {
-	int iEntity = GetEventInt(hEvent, "object_entindex");
+	int iEntity = hEvent.GetInt("object_entindex");
 	int iIndex  = FindRocketByEntity(iEntity);
 	
 	if (iIndex != -1)
 	{
+		g_iRocketEventDeflections[iIndex]++;
+		
 		if (g_iRocketFlags[iIndex] & RocketFlag_ResetBounces)
 		{
 			g_iRocketBounces[iIndex] = 0;
@@ -878,7 +881,7 @@ public void CreateRocket(int iSpawnerEntity, int iSpawnerClass, int iTeam)
             // Setup rocket entity.
             SetEntProp(iEntity,    Prop_Send, "m_bCritical",    (GetURandomFloatRange(0.0, 100.0) <= g_fRocketClassCritChance[iClass])? 1 : 0, 1);
             SetEntProp(iEntity,    Prop_Send, "m_iTeamNum",     (TestFlags(iFlags, RocketFlag_IsNeutral))? 1 : iTeam, 1);
-            SetEntProp(iEntity,    Prop_Send, "m_iDeflected",   1);
+            SetEntProp(iEntity,    Prop_Send, "m_iDeflected",   0);
             TeleportEntity(iEntity, fPosition, fAngles, view_as<float>({0.0, 0.0, 0.0}));
             
             // Setup rocket structure with the newly created entity.
@@ -899,6 +902,7 @@ public void CreateRocket(int iSpawnerEntity, int iSpawnerClass, int iTeam)
             g_iRocketSpawner[iIndex]            = iSpawnerClass;
             g_iRocketClass[iIndex]              = iClass;
             g_iRocketDeflections[iIndex]        = 0;
+            g_iRocketEventDeflections[iIndex]   = 0;
             g_bPreventingDelay[iIndex]          = false;
             g_iRocketBounces[iIndex]            = 0;
             g_fRocketLastDeflectionTime[iIndex] = GetGameTime();
@@ -1231,7 +1235,7 @@ void HomingRocketThink(int iIndex)
     int iTarget          = EntRefToEntIndex(g_iRocketTarget[iIndex]);
     int iTeam            = GetEntProp(iEntity, Prop_Send, "m_iTeamNum", 1);
     int iTargetTeam      = (TestFlags(iFlags, RocketFlag_IsNeutral))? 0 : GetAnalogueTeam(iTeam);
-    int iDeflectionCount = GetEntProp(iEntity, Prop_Send, "m_iDeflected") - 1;
+    int iDeflectionCount = g_iRocketEventDeflections[iIndex];
     float fModifier      = CalculateModifier(iClass, iDeflectionCount);
     
     // Check if the target is available
