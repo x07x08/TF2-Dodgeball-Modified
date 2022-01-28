@@ -1,3 +1,5 @@
+Since I'm not actively working on this anymore, check out some [forks](https://github.com/x07x08/TF2_Dodgeball_Modified/network/members) (currently only [cigzag's](https://github.com/cigzag/TF2_Dodgeball_Modified) has additions).
+
 # Convars
 ```c
     tf_dodgeball_enablecfg        "sourcemod/dodgeball_enable.cfg"  - Config file to execute when enabling the Dodgeball game mode.
