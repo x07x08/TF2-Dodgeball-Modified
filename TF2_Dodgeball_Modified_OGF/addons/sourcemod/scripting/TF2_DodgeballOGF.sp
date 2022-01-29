@@ -20,7 +20,7 @@
 // ---- Plugin-related constants ---------------------------------------------------
 #define PLUGIN_NAME             "[TF2] Dodgeball"
 #define PLUGIN_AUTHOR           "Damizean, edited by x07x08 with features from YADBP 1.4.2 & Redux"
-#define PLUGIN_VERSION          "1.5.2 OGF"
+#define PLUGIN_VERSION          "1.5.3 OGF"
 #define PLUGIN_CONTACT          "https://github.com/x07x08/TF2_Dodgeball_Modified"
 #define CVAR_FLAGS              FCVAR_PLUGIN
 
@@ -917,6 +917,11 @@ public void CreateRocket(int iSpawnerEntity, int iSpawnerClass, int iTeam)
             int iTeamRocketTarget = GetClientTeam(iTarget);
             int iRocketOwner      = SelectTarget(GetAnalogueTeam(iTeamRocketTarget));
             SetEntPropEnt(iEntity, Prop_Send, "m_hOwnerEntity", iRocketOwner);
+            
+            // Flamethrower sound loop fix (https://github.com/walgrim-dev/Flame-Sound-Fix)
+            // It seems if m_hOriginalLauncher is a non-stock flamethrower, the game loops the flame sound
+            SetEntPropEnt(iEntity, Prop_Send, "m_hOriginalLauncher", iEntity);
+            SetEntPropEnt(iEntity, Prop_Send, "m_hLauncher", iEntity);
             
             float fModifier = CalculateModifier(iClass, 0);
             g_bRocketIsValid[iIndex]            = true;
