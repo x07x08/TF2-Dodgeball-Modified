@@ -13,12 +13,12 @@
 ```
 
 # Commands
-For a list of commands, check the configuration file located in [`addons/sourcemod/configs/dodgeball`](https://github.com/x07x08/TF2_Dodgeball_Modified/tree/main/TF2_Dodgeball_Modified/addons/sourcemod/configs/dodgeball).
+For a list of commands, check the configuration file located in [`addons/sourcemod/configs/dodgeball`](https://github.com/x07x08/TF2-Dodgeball-Modified/tree/main/TF2Dodgeball/addons/sourcemod/configs/dodgeball).
 
 # Installation
 Drag and drop the contents of a folder inside the `tf` folder.
 
-If you plan on using airblast prevention, make sure to also add the contents of [`cfg/sourcemod`](https://github.com/x07x08/TF2_Dodgeball_Modified/tree/main/TF2_Dodgeball_Modified/cfg/sourcemod).
+If you plan on using airblast prevention, make sure to also add the contents of [`cfg/sourcemod`](https://github.com/x07x08/TF2-Dodgeball-Modified/tree/main/TF2Dodgeball/cfg/sourcemod).
 
 # Requirements
 - [Multi-Colors](https://github.com/Bara/Multi-Colors) (compile only).
@@ -44,7 +44,7 @@ By default, the plugin uses a custom model for the `"nuke"` rocket class. It can
 - Fixed neutral rockets.
 
 # Known bugs
-None at the moment. Report bugs using the [Issues](https://github.com/x07x08/TF2_Dodgeball_Modified/issues) tab.
+None at the moment. Report bugs using the [Issues](https://github.com/x07x08/TF2-Dodgeball-Modified/issues) tab.
 
 # Credits
 1. The original YADB plugin by Damizean : [AlliedMods Link](https://forums.alliedmods.net/showthread.php?t=134503)
