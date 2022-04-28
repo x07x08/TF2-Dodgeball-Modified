@@ -27,21 +27,6 @@ If you plan on using airblast prevention, make sure to also add the contents of 
 # Nuke model
 By default, the plugin uses a custom model for the `"nuke"` rocket class. It can be found here : [AlliedMods Link](https://forums.alliedmods.net/showpost.php?s=8fa72450fa0c4941c927d01d2d6245c9&p=2180141&postcount=350)
 
-# Versions
-There are 2 versions : 
-- The normal one : `TF2_Dodgeball_Modified`
-- The "OGF" version : `TF2_Dodgeball_Modified_OGF`
-
-The main difference between them is how the rocket moves :
-
-- The OGF version uses [`OnGameFrame()`](https://sm.alliedmods.net/new-api/sourcemod/OnGameFrame) which is called on every single frame of the server logic (or simply put, every tick of the server's tickrate), making the rocket turn more precisely.
-
-- The normal one uses the original method : a timer with an 0.1 seconds interval, it's less resource intensive but results in worse movement.
-
-The OGF version also includes a few more rocket settings that are **not** present in the normal version.
-
-**Use only one version!**
-
 # Features
 - Steal and delay prevention from updated YADBP.
 - "Keep direction" feature from Redux.
