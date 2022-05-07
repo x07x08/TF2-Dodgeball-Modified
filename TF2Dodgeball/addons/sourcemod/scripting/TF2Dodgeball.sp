@@ -22,7 +22,7 @@
 // ---- Plugin-related constants ---------------------------------------------------
 #define PLUGIN_NAME             "[TF2] Dodgeball"
 #define PLUGIN_AUTHOR           "Damizean, edited by x07x08 with features from YADBP 1.4.2 & Redux"
-#define PLUGIN_VERSION          "1.6.0"
+#define PLUGIN_VERSION          "1.6.1"
 #define PLUGIN_CONTACT          "https://github.com/x07x08/TF2-Dodgeball-Modified"
 
 // ---- Flags and types constants --------------------------------------------------
@@ -199,6 +199,8 @@ Handle g_hForwardOnRocketDelay;
 Handle g_hForwardOnRocketBounce;
 Handle g_hForwardOnRocketBouncePre;
 
+bool g_bIgnoreHook;
+
 // *********************************************************************************
 // PLUGIN
 // *********************************************************************************
@@ -238,11 +240,13 @@ public void OnPluginStart()
     g_hCvarDelayPreventionSpeedup = CreateConVar("tf_dodgeball_dp_speedup", "100", "How much speed (in hammer units per second) should the rocket gain when delayed?", _, true, 0.0, false);
     g_hCvarNoTargetRedirectDamage = CreateConVar("tf_dodgeball_redirect_damage", "1", "Reduce all damage when a rocket has an invalid target?", _, true, 0.0, true, 1.0);
     
-    g_hCvarStealDistance.AddChangeHook(tf2dodgeball_cvarhook);
+    g_hCvarStealDistance.AddChangeHook(TFDBCvarHook);
     
     g_hRocketClassTrie = new StringMap();
     g_hSpawnersTrie = new StringMap();
     g_fTickModifier = 0.1 / GetTickInterval();
+    
+    AddTempEntHook("TFExplosion", OnTFExplosion);
     
     RegisterCommands();
 }
@@ -1137,11 +1141,6 @@ void CreateRocket(int iSpawnerEntity, int iSpawnerClass, int iTeam, int iClass =
             int iTeamRocketTarget = GetClientTeam(iTarget);
             int iRocketOwner      = SelectTarget(GetAnalogueTeam(iTeamRocketTarget));
             SetEntPropEnt(iEntity, Prop_Send, "m_hOwnerEntity", iRocketOwner);
-            
-            // Flamethrower sound loop fix (https://github.com/walgrim-dev/Flame-Sound-Fix)
-            // It seems if m_hOriginalLauncher is a non-stock flamethrower, the game loops the flame sound
-            SetEntPropEnt(iEntity, Prop_Send, "m_hOriginalLauncher", iEntity);
-            SetEntPropEnt(iEntity, Prop_Send, "m_hLauncher", iEntity);
             
             float fModifier = CalculateModifier(iClass, 0);
             g_bRocketIsValid[iIndex]            = true;
@@ -3523,9 +3522,7 @@ public bool MLTargetFilterStealer(const char[] strPattern, ArrayList hClients)
 	return !!hClients.Length;
 }
 
-// Asherkin's RocketBounce
-
-public void tf2dodgeball_cvarhook(Handle hConvar, const char[] strOldValue, const char[] strNewValue)
+public void TFDBCvarHook(Handle hConvar, const char[] strOldValue, const char[] strNewValue)
 {
 	if (hConvar == g_hCvarStealDistance)
 	{
@@ -3535,18 +3532,32 @@ public void tf2dodgeball_cvarhook(Handle hConvar, const char[] strOldValue, cons
 
 public Action OnStartTouch(int iEntity, int iOther)
 {
-	if (iOther > 0 && iOther <= MaxClients)
-		return Plugin_Continue;
-		
 	int iIndex = FindRocketByEntity(iEntity);
 	
 	if (iIndex != -1)
 	{
+		if (iOther > 0 && iOther <= MaxClients)
+		{
+			if (g_iRocketDeflections[iIndex] == 0)
+			{
+				SetEntPropEnt(iEntity, Prop_Send, "m_hOwnerEntity", 0);
+			}
+			
+			return Plugin_Continue;
+		}
+		
 		// Only allow a rocket to bounce x times.
 		int iClass = g_iRocketClass[iIndex];
 		
 		if (g_iRocketBounces[iIndex] >= g_iRocketClassMaxBounces[iClass])
+		{
+			if (g_iRocketDeflections[iIndex] == 0)
+			{
+				SetEntPropEnt(iEntity, Prop_Send, "m_hOwnerEntity", 0);
+			}
+			
 			return Plugin_Continue;
+		}
 	}
 	else
 	{
@@ -3612,11 +3623,11 @@ public Action OnTouch(int iEntity, int iOther)
 		Action aResult = Forward_OnRocketBouncePre(iIndex, iEntity, vNewAnglesRef, vBounceVecRef);
 		
 		if (aResult == Plugin_Stop || aResult == Plugin_Handled)
-        {
-        	SDKUnhook(iEntity, SDKHook_Touch, OnTouch);
-        	
-        	return Plugin_Handled;
-        }
+		{
+			SDKUnhook(iEntity, SDKHook_Touch, OnTouch);
+			
+			return Plugin_Handled;
+		}
 		else if (aResult == Plugin_Changed)
 		{
 			CopyVectors(vNewAnglesRef, vNewAngles);
@@ -3685,6 +3696,8 @@ void CheckRoundDelays(int iIndex)
 	}
 }
 
+// https://forums.alliedmods.net/showpost.php?p=2464485&postcount=2
+
 stock float GetEntitiesDistance(int iEnt1, int iEnt2)
 {
 	float fOrig1[3];
@@ -3706,6 +3719,8 @@ stock void PrecacheTrail(char[] strFileName)
 	PrecacheGeneric(strDownloadString, true);
 	AddFileToDownloadsTable(strDownloadString);
 }
+
+// https://forums.alliedmods.net/showthread.php?t=75102
 
 stock void CreateTempParticle(const char[] strParticle,
                               const float vecOrigin[3] = NULL_VECTOR,
@@ -3760,6 +3775,8 @@ stock void CreateTempParticle(const char[] strParticle,
 	TE_SendToAll();
 }
 
+// https://forums.alliedmods.net/showpost.php?p=2471744&postcount=3
+
 stock int PrecacheParticleSystem(const char[] strParticleSystem)
 {
 	static int iParticleEffectNames = INVALID_STRING_TABLE;
@@ -3806,6 +3823,59 @@ stock int FindStringIndex2(int iTableIndex, const char[] strString)
     return INVALID_STRING_INDEX;
 }
 
+// https://gitlab.com/nanochip/fixfireloop/-/blob/master/scripting/fixfireloop.sp
+// The most significant change is Plugin_Continue instead of Plugin_Stop
+
+public Action OnTFExplosion( const char[] strTEName, const int[] iClients, int iNumClients, float fDelay )
+{
+	if (!g_bEnabled)
+	{
+		return Plugin_Continue;
+	}
+	
+	if (g_bIgnoreHook)
+	{
+		g_bIgnoreHook = false;
+		
+		// Whenever we send a new explosion inside this hook, it will retrigger it, causing a loop which crashes the server.
+		// The next hook will check if it should ignore itself (this means allowing the new explosion, not blocking it).
+		return Plugin_Continue;
+	}
+	
+	// OKAY. so valve introduced some bug where reflecting a rocket into the world would make the client emit a looping flamethrower sound
+	// based on my observations, there's two possibilities:
+	// 
+	//   1. the server is incorrectly creating TFExplosion TEs that the client mis-interprets and then proceeds to play looped sounds with
+	//   2. there's some networked data race where the client is processing a TE's networked fields before they're fully up to date (can this even happen? it's valve, who knows)
+	// 
+	// another observation is that when the m_nDefID field is either not correctly assigned by the server (and is set to -1), the client will not play the weapon replacement sound
+	// that makes the flamethrower loop forever
+	
+	TE_Start("TFExplosion");
+	
+	float vecNormal[3]; TE_ReadVector("m_vecNormal", vecNormal);
+	
+	TE_WriteFloat("m_vecOrigin[0]", TE_ReadFloat("m_vecOrigin[0]"));
+	TE_WriteFloat("m_vecOrigin[1]", TE_ReadFloat("m_vecOrigin[1]"));
+	TE_WriteFloat("m_vecOrigin[2]", TE_ReadFloat("m_vecOrigin[2]"));
+	
+	TE_WriteVector("m_vecNormal", vecNormal);
+	
+	TE_WriteNum("m_iWeaponID", TE_ReadNum("m_iWeaponID"));
+	TE_WriteNum("entindex",    TE_ReadNum("entindex"));
+	TE_WriteNum("m_nDefID",    -1);
+	TE_WriteNum("m_nSound",    TE_ReadNum("m_nSound"));
+	TE_WriteNum("m_iCustomParticleIndex", TE_ReadNum("m_iCustomParticleIndex"));
+	
+	g_bIgnoreHook = true; // Mark the next hook as ignored before we send, otherwise it will loop
+	
+	// send our modified TE
+	TE_Send(iClients, iNumClients, fDelay);
+	
+	// stop the original
+	return Plugin_Stop;
+}
+
 /*
 **••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 **     ____      __            ____           _            
@@ -3818,7 +3888,8 @@ stock int FindStringIndex2(int iTableIndex, const char[] strString)
 **••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 */
 
-// No enum structs for the rockets and rocket classes yet...
+// No enum structs or methodmaps for the rockets and rocket classes yet...
+
 public any Native_IsValidRocket(Handle hPlugin, int iNumParams)
 {
 	int iIndex = GetNativeCell(1);
