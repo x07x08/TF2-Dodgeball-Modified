@@ -13,7 +13,7 @@ public Plugin myinfo =
 	name        = "[TF2] FlameSoundFix",
 	author      = "Walgrim",
 	description = "Fix the annoying flame sound on player hurt",
-	version     = "1.2",
+	version     = "1.2.1",
 	url         = "http://steamcommunity.com/id/walgrim/"
 };
 
@@ -24,7 +24,8 @@ public void OnClientPutInServer(int client)
 
 public Action OnTakeDamage(int client, int& attacker, int& inflictor, float& damage, int& damagetype, int& weapon, float damageForce[3], float damagePosition[3])
 {
-	if (originalWepIndex != -1)
+	// weapon is actually our SetEntPropEnt(entity, Prop_Send, "m_hOriginalLauncher", entity) on line 40
+	if (originalWepIndex != -1 && IsEntityConnectedAClient(GetEntPropEnt(weapon, Prop_Send, "m_hLauncher")))
 	{
 		weapon = originalWepIndex;
 	}
@@ -59,11 +60,20 @@ public void OnNextFrame(any entityRef)
 		    And on impact that causes this sound (why idk but it's linked somehow)
 		    What we are doing here is taking the weapon index on deflect and store it into our variable
 		    Just after we change m_hLauncher to an another entity index so it's no more linked to our weapon
-		    So now we just have to replace the wrong weapon index (our false m_hLauncher) to the correct one on player hit
+		    So now we just have to replace the wrong weapon index (our m_hOriginalLauncher) to the correct one on player hit
 		 */
 		originalWepIndex = GetEntPropEnt(entity, Prop_Send, "m_hLauncher");
 		SetEntPropEnt(entity, Prop_Send, "m_hLauncher", GetEntPropEnt(entity, Prop_Send, "m_hOwnerEntity"));
 		oldDeflects = deflects;
 	}
 	RequestFrame(OnNextFrame, EntIndexToEntRef(entity));
+}
+
+bool IsEntityConnectedAClient(int client)
+{
+	if (IsClientInGame(client) && 0 < client <= MaxClients)
+	{
+		return true;
+	}
+	return false;
 }
