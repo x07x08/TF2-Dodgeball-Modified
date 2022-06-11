@@ -22,7 +22,7 @@
 // ---- Plugin-related constants ---------------------------------------------------
 #define PLUGIN_NAME             "[TF2] Dodgeball"
 #define PLUGIN_AUTHOR           "Damizean, edited by x07x08 with features from YADBP 1.4.2 & Redux"
-#define PLUGIN_VERSION          "1.6.0"
+#define PLUGIN_VERSION          "1.6.2"
 #define PLUGIN_CONTACT          "https://github.com/x07x08/TF2-Dodgeball-Modified"
 
 // ---- Flags and types constants --------------------------------------------------
@@ -73,7 +73,6 @@ int    g_iLastDeadTeam;           // The team of the last dead client. If none, 
 int    g_iLastDeadClient;         // The last dead client. If none, it's a random client.
 int    g_iPlayerCount;
 float  g_fTickModifier;
-float  g_fStealDistance = 48.0;
 int    g_iEmptyModel;
 bool   g_bClientHideTrails [MAXPLAYERS + 1];
 bool   g_bClientHideSprites[MAXPLAYERS + 1];
@@ -157,7 +156,6 @@ RocketFlags    g_iSavedRocketClassFlags       [MAX_ROCKET_CLASSES];
 int            g_iRocketClassMaxBounces       [MAX_ROCKET_CLASSES];
 int            g_iRocketClassSavedMaxBounces  [MAX_ROCKET_CLASSES];
 float          g_fRocketClassBounceScale      [MAX_ROCKET_CLASSES];
-StringMap      g_hRocketClassTrie;
 int            g_iRocketClassCount;
 
 // Spawner classes
@@ -198,6 +196,9 @@ Handle g_hForwardOnRocketNoTarget;
 Handle g_hForwardOnRocketDelay;
 Handle g_hForwardOnRocketBounce;
 Handle g_hForwardOnRocketBouncePre;
+Handle g_hForwardOnRocketsConfigExecuted;
+
+bool g_bIgnoreHook;
 
 // *********************************************************************************
 // PLUGIN
@@ -238,11 +239,10 @@ public void OnPluginStart()
     g_hCvarDelayPreventionSpeedup = CreateConVar("tf_dodgeball_dp_speedup", "100", "How much speed (in hammer units per second) should the rocket gain when delayed?", _, true, 0.0, false);
     g_hCvarNoTargetRedirectDamage = CreateConVar("tf_dodgeball_redirect_damage", "1", "Reduce all damage when a rocket has an invalid target?", _, true, 0.0, true, 1.0);
     
-    g_hCvarStealDistance.AddChangeHook(tf2dodgeball_cvarhook);
-    
-    g_hRocketClassTrie = new StringMap();
     g_hSpawnersTrie = new StringMap();
     g_fTickModifier = 0.1 / GetTickInterval();
+    
+    AddTempEntHook("TFExplosion", OnTFExplosion);
     
     RegisterCommands();
 }
@@ -414,6 +414,10 @@ public APLRes AskPluginLoad2(Handle hMyself, bool bLate, char[] strError, int iE
 	CreateNative("TFDB_SetRocketDirection", Native_SetRocketDirection);
 	
 	CreateNative("TFDB_GetRocketLastDeflectionTime", Native_GetRocketLastDeflectionTime);
+	CreateNative("TFDB_SetRocketLastDeflectionTime", Native_SetRocketLastDeflectionTime);
+	
+	CreateNative("TFDB_GetRocketLastBeepTime", Native_GetRocketLastBeepTime);
+	CreateNative("TFDB_SetRocketLastBeepTime", Native_SetRocketLastBeepTime);
 	
 	CreateNative("TFDB_GetRocketCount", Native_GetRocketCount);
 	
@@ -421,8 +425,12 @@ public APLRes AskPluginLoad2(Handle hMyself, bool bLate, char[] strError, int iE
 	CreateNative("TFDB_SetIsRocketBouncing", Native_SetIsRocketBouncing);
 	
 	CreateNative("TFDB_GetIsRocketStolen", Native_GetIsRocketStolen);
+	CreateNative("TFDB_SetIsRocketStolen", Native_SetIsRocketStolen);
 	
 	CreateNative("TFDB_GetPreventingDelay", Native_GetPreventingDelay);
+	CreateNative("TFDB_SetPreventingDelay", Native_SetPreventingDelay);
+	
+	CreateNative("TFDB_GetLastSpawnTime", Native_GetLastSpawnTime);
 	
 	CreateNative("TFDB_GetIsRocketDraggable", Native_GetIsRocketDraggable);
 	CreateNative("TFDB_SetIsRocketDraggable", Native_SetIsRocketDraggable);
@@ -537,6 +545,8 @@ void SetupForwards()
 	g_hForwardOnRocketBounce = CreateGlobalForward("TFDB_OnRocketBounce", ET_Ignore, Param_Cell, Param_Cell);
 	// Rocket index, rocket entity, angles, velocity
 	g_hForwardOnRocketBouncePre = CreateGlobalForward("TFDB_OnRocketBouncePre", ET_Event, Param_Cell, Param_Cell, Param_Array, Param_Array);
+	// Config file
+	g_hForwardOnRocketsConfigExecuted = CreateGlobalForward("TFDB_OnRocketsConfigExecuted", ET_Ignore, Param_String);
 }
 
 /* OnConfigsExecuted()
@@ -1138,6 +1148,10 @@ void CreateRocket(int iSpawnerEntity, int iSpawnerClass, int iTeam, int iClass =
             int iRocketOwner      = SelectTarget(GetAnalogueTeam(iTeamRocketTarget));
             SetEntPropEnt(iEntity, Prop_Send, "m_hOwnerEntity", iRocketOwner);
             
+            int iWeapon = GetPlayerWeaponSlot(iRocketOwner, TFWeaponSlot_Primary);
+            SetEntPropEnt(iEntity, Prop_Send, "m_hOriginalLauncher", iWeapon == -1 ? iEntity : iWeapon);
+            SetEntPropEnt(iEntity, Prop_Send, "m_hLauncher", iWeapon == -1 ? iEntity : iWeapon);
+            
             float fModifier = CalculateModifier(iClass, 0);
             g_bRocketIsValid[iIndex]            = true;
             g_iRocketFlags[iIndex]              = iFlags;
@@ -1586,22 +1600,6 @@ void HomingRocketThink(int iIndex)
                 SetEntDataFloat(iEntity, FindSendPropInfo("CTFProjectile_Rocket", "m_iDeflected") + 4, CalculateRocketDamage(iClass, fModifier), true);
                 if (TestFlags(iFlags, RocketFlag_ElevateOnDeflect)) g_iRocketFlags[iIndex] |= RocketFlag_Elevating;
                 
-                int iTargetRef = iTarget;
-                
-                Action aResult = Forward_OnRocketDeflectPre(iIndex, iEntity, iClient, iTargetRef);
-                
-                if (aResult == Plugin_Stop || aResult == Plugin_Handled)
-                {
-                    return;
-                }
-                else if (aResult == Plugin_Changed)
-                {
-                    iTarget = iTargetRef;
-                    g_iRocketTarget[iIndex] = EntIndexToEntRef(iTarget);
-                }
-                
-                EmitRocketSound(RocketSound_Alert, iClass, iEntity, iTarget, iFlags);
-                
                 if (iFlags & RocketFlag_IsSpeedLimited)
                 {
                     if (g_fRocketSpeed[iIndex] >= g_fRocketClassSpeedLimit[iClass])
@@ -1619,6 +1617,22 @@ void HomingRocketThink(int iIndex)
                 {
                     SetEntProp(iEntity, Prop_Send, "m_iTeamNum", 1, 1);
                 }
+                
+                int iTargetRef = iTarget;
+                
+                Action aResult = Forward_OnRocketDeflectPre(iIndex, iEntity, iClient, iTargetRef);
+                
+                if (aResult == Plugin_Stop || aResult == Plugin_Handled)
+                {
+                    return;
+                }
+                else if (aResult == Plugin_Changed)
+                {
+                    iTarget = iTargetRef;
+                    g_iRocketTarget[iIndex] = EntIndexToEntRef(iTarget);
+                }
+                
+                EmitRocketSound(RocketSound_Alert, iClass, iEntity, iTarget, iFlags);
                 
                 // Execute appropiate command
                 if (TestFlags(iFlags, RocketFlag_OnDeflectCmd))
@@ -1788,22 +1802,6 @@ void RocketLegacyThink(int iIndex)
         SetEntDataFloat(iEntity, FindSendPropInfo("CTFProjectile_Rocket", "m_iDeflected") + 4, CalculateRocketDamage(iClass, fModifier), true);
         if (TestFlags(iFlags, RocketFlag_ElevateOnDeflect)) g_iRocketFlags[iIndex] |= RocketFlag_Elevating;
         
-        int iTargetRef = iTarget;
-        
-        Action aResult = Forward_OnRocketDeflectPre(iIndex, iEntity, iClient, iTargetRef);
-        
-        if (aResult == Plugin_Stop || aResult == Plugin_Handled)
-        {
-            return;
-        }
-        else if (aResult == Plugin_Changed)
-        {
-            iTarget = iTargetRef;
-            g_iRocketTarget[iIndex] = EntIndexToEntRef(iTarget);
-        }
-        
-        EmitRocketSound(RocketSound_Alert, iClass, iEntity, iTarget, iFlags);
-        
         if(iFlags & RocketFlag_IsSpeedLimited)
         {
             if (g_fRocketSpeed[iIndex] >= g_fRocketClassSpeedLimit[iClass])
@@ -1821,6 +1819,22 @@ void RocketLegacyThink(int iIndex)
         {
             SetEntProp(iEntity, Prop_Send, "m_iTeamNum", 1, 1);
         }
+        
+        int iTargetRef = iTarget;
+        
+        Action aResult = Forward_OnRocketDeflectPre(iIndex, iEntity, iClient, iTargetRef);
+        
+        if (aResult == Plugin_Stop || aResult == Plugin_Handled)
+        {
+            return;
+        }
+        else if (aResult == Plugin_Changed)
+        {
+            iTarget = iTargetRef;
+            g_iRocketTarget[iIndex] = EntIndexToEntRef(iTarget);
+        }
+        
+        EmitRocketSound(RocketSound_Alert, iClass, iEntity, iTarget, iFlags);
         
         // Execute appropiate command
         if (TestFlags(iFlags, RocketFlag_OnDeflectCmd))
@@ -2050,7 +2064,6 @@ void DestroyRocketClasses()
         g_hRocketClassCmdsOnNoTarget[iIndex] = null;
     }
     g_iRocketClassCount = 0;
-    g_hRocketClassTrie.Clear();
 }
 
 //  ___                          ___     _     _                     _    ___ _                    
@@ -2834,6 +2847,8 @@ bool ParseConfigurations(char[] strConfigFile = "general.cfg")
         while (kvConfig.GotoNextKey());
         
         delete kvConfig;
+        
+        Forward_OnRocketsConfigExecuted(strConfigFile);
     }
 }
 
@@ -3016,7 +3031,6 @@ void ParseClasses(KeyValues kvConfig)
         if ((hCmds = ParseCommands(strBuffer)) != null) { iFlags |= RocketFlag_OnNoTargetCmd; g_hRocketClassCmdsOnNoTarget[iIndex] = hCmds; }
         
         // Done
-        g_hRocketClassTrie.SetValue(strName, iIndex);
         g_iRocketClassFlags[iIndex] = iFlags;
         g_iSavedRocketClassFlags[iIndex] = iFlags;
         g_iRocketClassCount++;
@@ -3465,7 +3479,7 @@ void CheckStolenRocket(int iClient, int iIndex)
 	
 	if (iTarget != iClient && 
         !bStealArray[iClient].stoleRocket && 
-        (GetEntitiesDistance(iTarget, iClient) > g_fStealDistance) && 
+        (GetEntitiesDistance(iTarget, iClient) > g_hCvarStealDistance.FloatValue) && 
         (!(g_iRocketFlags[iIndex] & RocketFlag_StealTeamCheck) || (GetClientTeam(iTarget) == GetClientTeam(iClient))) && 
         !g_bPreventingDelay[iIndex])
 	{
@@ -3518,30 +3532,39 @@ public bool MLTargetFilterStealer(const char[] strPattern, ArrayList hClients)
 	return !!hClients.Length;
 }
 
-// Asherkin's RocketBounce
-
-public void tf2dodgeball_cvarhook(Handle hConvar, const char[] strOldValue, const char[] strNewValue)
-{
-	if (hConvar == g_hCvarStealDistance)
-	{
-		g_fStealDistance = StringToFloat(strNewValue);
-	}
-}
-
 public Action OnStartTouch(int iEntity, int iOther)
 {
-	if (iOther > 0 && iOther <= MaxClients)
-		return Plugin_Continue;
-		
 	int iIndex = FindRocketByEntity(iEntity);
 	
 	if (iIndex != -1)
 	{
+		if (iOther > 0 && iOther <= MaxClients)
+		{
+			if (g_iRocketDeflections[iIndex] == 0)
+			{
+				SetEntPropEnt(iEntity, Prop_Send, "m_hOwnerEntity", 0);
+				// If these are not changed as well, the server will crash
+				SetEntPropEnt(iEntity, Prop_Send, "m_hOriginalLauncher", -1);
+				SetEntPropEnt(iEntity, Prop_Send, "m_hLauncher", -1);
+			}
+			
+			return Plugin_Continue;
+		}
+		
 		// Only allow a rocket to bounce x times.
 		int iClass = g_iRocketClass[iIndex];
 		
 		if (g_iRocketBounces[iIndex] >= g_iRocketClassMaxBounces[iClass])
+		{
+			if (g_iRocketDeflections[iIndex] == 0)
+			{
+				SetEntPropEnt(iEntity, Prop_Send, "m_hOwnerEntity", 0);
+				SetEntPropEnt(iEntity, Prop_Send, "m_hOriginalLauncher", -1);
+				SetEntPropEnt(iEntity, Prop_Send, "m_hLauncher", -1);
+			}
+			
 			return Plugin_Continue;
+		}
 	}
 	else
 	{
@@ -3607,11 +3630,11 @@ public Action OnTouch(int iEntity, int iOther)
 		Action aResult = Forward_OnRocketBouncePre(iIndex, iEntity, vNewAnglesRef, vBounceVecRef);
 		
 		if (aResult == Plugin_Stop || aResult == Plugin_Handled)
-        {
-        	SDKUnhook(iEntity, SDKHook_Touch, OnTouch);
-        	
-        	return Plugin_Handled;
-        }
+		{
+			SDKUnhook(iEntity, SDKHook_Touch, OnTouch);
+			
+			return Plugin_Handled;
+		}
 		else if (aResult == Plugin_Changed)
 		{
 			CopyVectors(vNewAnglesRef, vNewAngles);
@@ -3680,6 +3703,8 @@ void CheckRoundDelays(int iIndex)
 	}
 }
 
+// https://forums.alliedmods.net/showpost.php?p=2464485&postcount=2
+
 stock float GetEntitiesDistance(int iEnt1, int iEnt2)
 {
 	float fOrig1[3];
@@ -3701,6 +3726,8 @@ stock void PrecacheTrail(char[] strFileName)
 	PrecacheGeneric(strDownloadString, true);
 	AddFileToDownloadsTable(strDownloadString);
 }
+
+// https://forums.alliedmods.net/showthread.php?t=75102
 
 stock void CreateTempParticle(const char[] strParticle,
                               const float vecOrigin[3] = NULL_VECTOR,
@@ -3755,6 +3782,8 @@ stock void CreateTempParticle(const char[] strParticle,
 	TE_SendToAll();
 }
 
+// https://forums.alliedmods.net/showpost.php?p=2471744&postcount=3
+
 stock int PrecacheParticleSystem(const char[] strParticleSystem)
 {
 	static int iParticleEffectNames = INVALID_STRING_TABLE;
@@ -3785,20 +3814,73 @@ stock int PrecacheParticleSystem(const char[] strParticleSystem)
 
 stock int FindStringIndex2(int iTableIndex, const char[] strString)
 {
-    char strBuffer[1024];
-    
-    int iNumStrings = GetStringTableNumStrings(iTableIndex);
-    for (int iIndex = 0; iIndex < iNumStrings; iIndex++)
-    {
-        ReadStringTable(iTableIndex, iIndex, strBuffer, sizeof(strBuffer));
-        
-        if (StrEqual(strBuffer, strString))
-        {
-            return iIndex;
-        }
-    }
-    
-    return INVALID_STRING_INDEX;
+	char strBuffer[1024];
+	
+	int iNumStrings = GetStringTableNumStrings(iTableIndex);
+	for (int iIndex = 0; iIndex < iNumStrings; iIndex++)
+	{
+		ReadStringTable(iTableIndex, iIndex, strBuffer, sizeof(strBuffer));
+		
+		if (StrEqual(strBuffer, strString))
+		{
+			return iIndex;
+		}
+	}
+	
+	return INVALID_STRING_INDEX;
+}
+
+// https://gitlab.com/nanochip/fixfireloop/-/blob/master/scripting/fixfireloop.sp
+// The most significant change is Plugin_Continue instead of Plugin_Stop
+
+public Action OnTFExplosion(const char[] strTEName, const int[] iClients, int iNumClients, float fDelay)
+{
+	if (!g_bEnabled)
+	{
+		return Plugin_Continue;
+	}
+	
+	if (g_bIgnoreHook)
+	{
+		g_bIgnoreHook = false;
+		
+		// Whenever we send a new explosion inside this hook, it will retrigger it, causing a loop which crashes the server.
+		// The next hook will check if it should ignore itself (this means allowing the new explosion, not blocking it).
+		return Plugin_Continue;
+	}
+	
+	// OKAY. so valve introduced some bug where reflecting a rocket into the world would make the client emit a looping flamethrower sound
+	// based on my observations, there's two possibilities:
+	// 
+	//   1. the server is incorrectly creating TFExplosion TEs that the client mis-interprets and then proceeds to play looped sounds with
+	//   2. there's some networked data race where the client is processing a TE's networked fields before they're fully up to date (can this even happen? it's valve, who knows)
+	// 
+	// another observation is that when the m_nDefID field is either not correctly assigned by the server (and is set to -1), the client will not play the weapon replacement sound
+	// that makes the flamethrower loop forever
+	
+	TE_Start("TFExplosion");
+	
+	float vecNormal[3]; TE_ReadVector("m_vecNormal", vecNormal);
+	
+	TE_WriteFloat("m_vecOrigin[0]", TE_ReadFloat("m_vecOrigin[0]"));
+	TE_WriteFloat("m_vecOrigin[1]", TE_ReadFloat("m_vecOrigin[1]"));
+	TE_WriteFloat("m_vecOrigin[2]", TE_ReadFloat("m_vecOrigin[2]"));
+	
+	TE_WriteVector("m_vecNormal", vecNormal);
+	
+	TE_WriteNum("m_iWeaponID", TE_ReadNum("m_iWeaponID"));
+	TE_WriteNum("entindex",    TE_ReadNum("entindex"));
+	TE_WriteNum("m_nDefID",    -1);
+	TE_WriteNum("m_nSound",    TE_ReadNum("m_nSound"));
+	TE_WriteNum("m_iCustomParticleIndex", TE_ReadNum("m_iCustomParticleIndex"));
+	
+	g_bIgnoreHook = true; // Mark the next hook as ignored before we send, otherwise it will loop
+	
+	// send our modified TE
+	TE_Send(iClients, iNumClients, fDelay);
+	
+	// stop the original
+	return Plugin_Stop;
 }
 
 /*
@@ -3813,7 +3895,8 @@ stock int FindStringIndex2(int iTableIndex, const char[] strString)
 **••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 */
 
-// No enum structs for the rockets and rocket classes yet...
+// No enum structs or methodmaps for the rockets and rocket classes yet...
+
 public any Native_IsValidRocket(Handle hPlugin, int iNumParams)
 {
 	int iIndex = GetNativeCell(1);
@@ -5080,6 +5163,46 @@ public any Native_GetRocketLastDeflectionTime(Handle hPlugin, int iNumParams)
 	return g_fRocketLastDeflectionTime[iIndex];
 }
 
+public any Native_SetRocketLastDeflectionTime(Handle hPlugin, int iNumParams)
+{
+	int iIndex = GetNativeCell(1);
+	
+	if (iIndex >= MAX_ROCKETS || iIndex < 0)
+	{
+		ThrowNativeError(SP_ERROR_NATIVE, "Rocket index %i is out of bounds", iIndex);
+	}
+	
+	float fTime = GetNativeCell(2);
+	
+	g_fRocketLastDeflectionTime[iIndex] = fTime;
+}
+
+public any Native_GetRocketLastBeepTime(Handle hPlugin, int iNumParams)
+{
+	int iIndex = GetNativeCell(1);
+	
+	if (iIndex >= MAX_ROCKETS || iIndex < 0)
+	{
+		ThrowNativeError(SP_ERROR_NATIVE, "Rocket index %i is out of bounds", iIndex);
+	}
+	
+	return g_fRocketLastBeepTime[iIndex];
+}
+
+public any Native_SetRocketLastBeepTime(Handle hPlugin, int iNumParams)
+{
+	int iIndex = GetNativeCell(1);
+	
+	if (iIndex >= MAX_ROCKETS || iIndex < 0)
+	{
+		ThrowNativeError(SP_ERROR_NATIVE, "Rocket index %i is out of bounds", iIndex);
+	}
+	
+	float fTime = GetNativeCell(2);
+	
+	g_fRocketLastBeepTime[iIndex] = fTime;
+}
+
 public any Native_GetRocketCount(Handle hPlugin, int iNumParams)
 {
 	return g_iRocketCount;
@@ -5123,6 +5246,20 @@ public any Native_GetIsRocketStolen(Handle hPlugin, int iNumParams)
 	return g_bIsRocketStolen[iIndex];
 }
 
+public any Native_SetIsRocketStolen(Handle hPlugin, int iNumParams)
+{
+	int iIndex = GetNativeCell(1);
+	
+	if (iIndex >= MAX_ROCKETS || iIndex < 0)
+	{
+		ThrowNativeError(SP_ERROR_NATIVE, "Rocket index %i is out of bounds", iIndex);
+	}
+	
+	bool bStolen = GetNativeCell(2);
+	
+	g_bIsRocketStolen[iIndex] = bStolen;
+}
+
 public any Native_GetPreventingDelay(Handle hPlugin, int iNumParams)
 {
 	int iIndex = GetNativeCell(1);
@@ -5133,6 +5270,32 @@ public any Native_GetPreventingDelay(Handle hPlugin, int iNumParams)
 	}
 	
 	return g_bPreventingDelay[iIndex];
+}
+
+public any Native_SetPreventingDelay(Handle hPlugin, int iNumParams)
+{
+	int iIndex = GetNativeCell(1);
+	
+	if (iIndex >= MAX_ROCKETS || iIndex < 0)
+	{
+		ThrowNativeError(SP_ERROR_NATIVE, "Rocket index %i is out of bounds", iIndex);
+	}
+	
+	bool bDelay = GetNativeCell(2);
+	
+	g_bPreventingDelay[iIndex] = bDelay;
+}
+
+public any Native_GetLastSpawnTime(Handle hPlugin, int iNumParams)
+{
+	int iIndex = GetNativeCell(1);
+	
+	if (iIndex >= MAX_ROCKETS || iIndex < 0)
+	{
+		ThrowNativeError(SP_ERROR_NATIVE, "Rocket index %i is out of bounds", iIndex);
+	}
+	
+	return g_fLastSpawnTime[iIndex];
 }
 
 public any Native_GetIsRocketDraggable(Handle hPlugin, int iNumParams)
@@ -5966,6 +6129,13 @@ Action Forward_OnRocketBouncePre(int iIndex, int iEntity, float fAngles[3], floa
 	Call_Finish(aResult);
 	
 	return aResult;
+}
+
+void Forward_OnRocketsConfigExecuted(const char[] strConfigFile)
+{
+	Call_StartForward(g_hForwardOnRocketsConfigExecuted);
+	Call_PushString(strConfigFile);
+	Call_Finish();
 }
 
 // EOF

@@ -195,6 +195,14 @@ forward void TFDB_OnRocketBounce(int iIndex, int iEntity);
 
 forward Action TFDB_OnRocketBouncePre(int iIndex, int iEntity, float fAngles[3], float fVelocity[3]);
 
+/**
+ * Called when a configuration file has been parsed.
+ *
+ * @param strConfigFile    Configuration file.
+*/
+
+forward void TFDB_OnRocketsConfigExecuted(const char[] strConfigFile);
+
 // ---- Natives --------------------------------------------------
 /**
  * Checks if a rocket structure is valid.
@@ -1324,6 +1332,38 @@ native void TFDB_SetRocketDirection(int iIndex, float fDirection[3]);
 native float TFDB_GetRocketLastDeflectionTime(int iIndex);
 
 /**
+ * Sets the last time a rocket was deflected.
+ *
+ * @param iIndex    Rocket index.
+ * @param fTime     New last deflection time.
+ * @noreturn
+ * @error           Invalid index.
+*/
+
+native void TFDB_SetRocketLastDeflectionTime(int iIndex, float fTime);
+
+/**
+ * Gets the last time a rocket beeped.
+ *
+ * @param iIndex    Rocket index.
+ * @return          Last beep time.
+ * @error           Invalid index.
+*/
+
+native float TFDB_GetRocketLastBeepTime(int iIndex);
+
+/**
+ * Sets the last time a rocket beeped.
+ *
+ * @param iIndex    Rocket index.
+ * @param fTime     New last beep time.
+ * @noreturn
+ * @error           Invalid index.
+*/
+
+native void TFDB_SetRocketLastBeepTime(int iIndex, float fTime);
+
+/**
  * Gets the current rockets count.
  *
  * @return    Rockets count.
@@ -1369,6 +1409,17 @@ native void TFDB_SetIsRocketBouncing(int iIndex, bool bBouncing);
 native bool TFDB_GetIsRocketStolen(int iIndex);
 
 /**
+ * Sets whether a rocket is "stolen" or not.
+ *
+ * @param iIndex     Rocket index.
+ * @param bStolen    Steal state.
+ * @noreturn
+ * @error            Invalid index.
+*/
+
+native void TFDB_SetIsRocketStolen(int iIndex, bool bStolen);
+
+/**
  * Gets if a rocket is being delayed by a player.
  *
  * @param iIndex    Rocket index.
@@ -1377,6 +1428,27 @@ native bool TFDB_GetIsRocketStolen(int iIndex);
 */
 
 native bool TFDB_GetPreventingDelay(int iIndex);
+
+/**
+ * Sets if a rocket is being delayed by a player.
+ *
+ * @param iIndex    Rocket index.
+ * @param bDelay    Delay state.
+ * @noreturn
+ * @error           Invalid index.
+*/
+
+native void TFDB_SetPreventingDelay(int iIndex, bool bDelay);
+
+/**
+ * Gets the time when a rocket has spawned.
+ *
+ * @param iIndex    Rocket index.
+ * @return          Last spawn time.
+ * @error           Invalid index.
+*/
+
+native float TFDB_GetLastSpawnTime(int iIndex);
 
 /**
  * Gets if a rocket can be dragged.
@@ -2103,11 +2175,17 @@ public __pl_TFDB_SetNTVOptional()
 	MarkNativeAsOptional("TFDB_GetRocketDirection");
 	MarkNativeAsOptional("TFDB_SetRocketDirection");
 	MarkNativeAsOptional("TFDB_GetRocketLastDeflectionTime");
+	MarkNativeAsOptional("TFDB_SetRocketLastDeflectionTime");
+	MarkNativeAsOptional("TFDB_GetRocketLastBeepTime");
+	MarkNativeAsOptional("TFDB_SetRocketLastBeepTime");
 	MarkNativeAsOptional("TFDB_GetRocketCount");
 	MarkNativeAsOptional("TFDB_GetIsRocketBouncing");
 	MarkNativeAsOptional("TFDB_SetIsRocketBouncing");
 	MarkNativeAsOptional("TFDB_GetIsRocketStolen");
+	MarkNativeAsOptional("TFDB_SetIsRocketStolen");
 	MarkNativeAsOptional("TFDB_GetPreventingDelay");
+	MarkNativeAsOptional("TFDB_SetPreventingDelay");
+	MarkNativeAsOptional("TFDB_GetLastSpawnTime");
 	MarkNativeAsOptional("TFDB_GetIsRocketDraggable");
 	MarkNativeAsOptional("TFDB_SetIsRocketDraggable");
 	MarkNativeAsOptional("TFDB_GetRocketBounces");
