@@ -62,6 +62,16 @@ enum RocketSound
     RocketSound_Alert
 };
 
+enum RocketState
+{
+	RocketState_None     = 0,
+	RocketState_Dragging = 1 << 0,
+	RocketState_Bouncing = 1 << 1,
+	RocketState_Stolen   = 1 << 2,
+	RocketState_Delayed  = 1 << 3,
+	RocketState_CanDrag  = 1 << 4
+};
+
 enum struct eRocketSteal
 {
 	bool stoleRocket;
@@ -109,18 +119,6 @@ forward void TFDB_OnRocketCreated(int iIndex, int iEntity);
 */
 
 forward Action TFDB_OnRocketCreatedPre(int iIndex, int &iClass, RocketFlags &iFlags);
-
-/**
- * Called when a rocket has been deflected, right before a drag.
- *
- * @note This does not fire on legacy homing rockets.
- *
- * @param iIndex     Rocket index.
- * @param iEntity    Rocket entity.
- * @param iOwner     Rocket owner.
-*/
-
-forward void TFDB_OnRocketAltDeflect(int iIndex, int iEntity, int iOwner);
 
 /**
  * Called when a rocket has been deflected.
@@ -202,6 +200,16 @@ forward Action TFDB_OnRocketBouncePre(int iIndex, int iEntity, float fAngles[3],
 */
 
 forward void TFDB_OnRocketsConfigExecuted(const char[] strConfigFile);
+
+/**
+ * Called when a rocket's state has changed.
+ *
+ * @param iIndex       Rocket index.
+ * @param iState       Old rocket state.
+ * @param iNewState    Current rocket state.
+*/
+
+forward void TFDB_OnRocketStateChanged(int iIndex, RocketState iState, RocketState iNewState);
 
 // ---- Natives --------------------------------------------------
 /**
@@ -310,36 +318,9 @@ native int TFDB_GetRocketEventDeflections(int iIndex);
 native void TFDB_SetRocketEventDeflections(int iIndex, int iDeflections);
 
 /**
- * Gets the "alt" deflections count of a rocket.
- *
- * @note This returns "g_iRocketAltDeflections", which is updated after "g_iRocketEventDeflections".
- *
- * @param iIndex    Rocket index.
- * @return          Deflections count, 0 if the rocket behaviour is "legacy homing".
- * @error           Invalid index.
-*/
-
-native int TFDB_GetRocketAltDeflections(int iIndex);
-
-/**
- * Sets the "alt" deflections count of a rocket.
- *
- * @note This changes "g_iRocketAltDeflections".
- *       Calling this function on a "legacy homing" rocket will have no effects.
- *
- * @param iIndex          Rocket index.
- * @param iDeflections    New deflections count.
- * @noreturn
- * @error                 Invalid index.
-*/
-
-native void TFDB_SetRocketAltDeflections(int iIndex, int iDeflections);
-
-/**
  * Gets the deflections count of a rocket.
  *
- * @note This returns "g_iRocketDeflections", which is updated after "g_iRocketAltDeflections".
- *       If the behaviour is legacy homing, it is updated after "g_iRocketEventDeflections".
+ * @note This returns "g_iRocketDeflections", which is updated after "g_iRocketEventDeflections".
  *
  * @param iIndex    Rocket index.
  * @return          Deflections count.
@@ -776,76 +757,6 @@ native void TFDB_SetRocketClassCount(int iCount);
 native void TFDB_SetRocketEntity(int iIndex, int iEntity);
 
 /**
- * Gets the saved parameters of a rocket class.
- *
- * Valid iParam values are :
- *
- * 0 - Speed
- * 1 - Speed increment
- * 2 - Speed limit
- * 3 - Turnrate
- * 4 - Turnrate increment
- * 5 - Turnrate limit
- * 6 - Elevation rate
- * 7 - Elevation limit
- * 8 - Drag time min
- * 9 - Drag time max
- *
- * @param iClass    Rocket class.
- * @param iParam    Saved rocket class property.
- * @return          Rocket class saved parameter.
- * @error           Invalid class or invalid parameter.
-*/
-
-native float TFDB_GetSavedParameters(int iClass, int iParam);
-
-/**
- * Sets the saved parameters of a rocket class.
- *
- * Valid iParam values are :
- *
- * 0 - Speed
- * 1 - Speed increment
- * 2 - Speed limit
- * 3 - Turnrate
- * 4 - Turnrate increment
- * 5 - Turnrate limit
- * 6 - Elevation rate
- * 7 - Elevation limit
- * 8 - Drag time min
- * 9 - Drag time max
- *
- * @param iClass    Rocket class.
- * @param iParam    Saved rocket class property.
- * @param fValue    New rocket class saved parameter value.
- * @noreturn
- * @error           Invalid class or invalid parameter.
-*/
-
-native void TFDB_SetSavedParameters(int iClass, int iParam, float fValue);
-
-/**
- * Gets the saved flags bitmask of a rocket class.
- *
- * @param iClass    Rocket class.
- * @return          Rocket class saved flags bitmask.
- * @error           Invalid class.
-*/
-
-native RocketFlags TFDB_GetSavedRocketClassFlags(int iClass);
-
-/**
- * Sets the saved flags bitmask of a rocket class.
- *
- * @param iClass    Rocket class.
- * @param iFlags    New rocket class saved flags bitmask.
- * @noreturn
- * @error           Invalid class.
-*/
-
-native void TFDB_SetSavedRocketClassFlags(int iClass, RocketFlags iFlags);
-
-/**
  * Gets the max. bounces count of a rocket.
  *
  * @param iClass    Rocket index.
@@ -865,27 +776,6 @@ native int TFDB_GetRocketClassMaxBounces(int iClass);
 */
 
 native void TFDB_SetRocketClassMaxBounces(int iClass, int iBounces);
-
-/**
- * Gets the saved max. bounces count of a rocket.
- *
- * @param iClass    Rocket index.
- * @return          Rocket class saved max. bounces count.
- * @error           Invalid class.
-*/
-
-native int TFDB_GetRocketClassSavedMaxBounces(int iClass);
-
-/**
- * Sets the saved max. bounces count of a rocket.
- *
- * @param iClass      Rocket index.
- * @param iBounces    New rocket class saved max. bounces count.
- * @noreturn
- * @error             Invalid class.
-*/
-
-native void TFDB_SetRocketClassSavedMaxBounces(int iClass, int iBounces);
 
 /**
  * Gets the name of a spawner class.
@@ -908,7 +798,7 @@ native void TFDB_GetSpawnersName(int iSpawnerClass, char[] strBuffer, int iMaxLe
  * @error                  Invalid spawner class.
 */
 
-native void TFDB_SetSpawnersName(int iSpawnerClass, char[] strName);
+native void TFDB_SetSpawnersName(int iSpawnerClass, const char[] strName);
 
 /**
  * Gets the max rockets count of a spawner class.
@@ -974,29 +864,6 @@ native ArrayList TFDB_GetSpawnersChancesTable(int iSpawnerClass);
 */
 
 native void TFDB_SetSpawnersChancesTable(int iSpawnerClass, ArrayList hTable);
-
-/**
- * Gets the saved rockets spawn chances list of a spawner class.
- *
- * @note Once finished, close the handle.
- *
- * @param iSpawnerClass    Spawner class.
- * @return                 Handle for the saved rockets spawn chances arraylist of the spawner class.
- * @error                  Invalid spawner class.
-*/
-
-native ArrayList TFDB_GetSavedChancesTable(int iSpawnerClass);
-
-/**
- * Sets the saved rockets spawn chances list of a spawner class.
- *
- * @param iSpawnerClass    Spawner class.
- * @param hTable           New spawner class saved rockets spawn chances arraylist.
- * @noreturn
- * @error                  Invalid spawner class.
-*/
-
-native void TFDB_SetSavedChancesTable(int iSpawnerClass, ArrayList hTable);
 
 /**
  * Gets the spawners count.
@@ -1372,75 +1239,6 @@ native void TFDB_SetRocketLastBeepTime(int iIndex, float fTime);
 native int TFDB_GetRocketCount();
 
 /**
- * Gets whether a rocket is "bouncing" or not.
- *
- * @note Make sure to check if the behaviour of the rocket is not "legacy homing".
- *       The bouncing state has no effect on the legacy homing behaviour.
- *
- * @param iIndex    Rocket index.
- * @return          True if the rocket is bouncing, false if not.
- * @error           Invalid index.
-*/
-
-native bool TFDB_GetIsRocketBouncing(int iIndex);
-
-/**
- * Sets whether a rocket is "bouncing" or not.
- *
- * @note Make sure to check if the behaviour of the rocket is not "legacy homing".
- *       The bouncing state has no effect on the legacy homing behaviour.
- *
- * @param iIndex       Rocket index.
- * @param bBouncing    Bouncing state.
- * @noreturn
- * @error              Invalid index.
-*/
-
-native void TFDB_SetIsRocketBouncing(int iIndex, bool bBouncing);
-
-/**
- * Gets whether a rocket is "stolen" or not.
- *
- * @param iIndex    Rocket index.
- * @return          True if the rocket has been stolen, false if not.
- * @error           Invalid index.
-*/
-
-native bool TFDB_GetIsRocketStolen(int iIndex);
-
-/**
- * Sets whether a rocket is "stolen" or not.
- *
- * @param iIndex     Rocket index.
- * @param bStolen    Steal state.
- * @noreturn
- * @error            Invalid index.
-*/
-
-native void TFDB_SetIsRocketStolen(int iIndex, bool bStolen);
-
-/**
- * Gets if a rocket is being delayed by a player.
- *
- * @param iIndex    Rocket index.
- * @return          True if the rocket is being delayed, false otherwise.
- * @error           Invalid index.
-*/
-
-native bool TFDB_GetPreventingDelay(int iIndex);
-
-/**
- * Sets if a rocket is being delayed by a player.
- *
- * @param iIndex    Rocket index.
- * @param bDelay    Delay state.
- * @noreturn
- * @error           Invalid index.
-*/
-
-native void TFDB_SetPreventingDelay(int iIndex, bool bDelay);
-
-/**
  * Gets the time when a rocket has spawned.
  *
  * @param iIndex    Rocket index.
@@ -1449,31 +1247,6 @@ native void TFDB_SetPreventingDelay(int iIndex, bool bDelay);
 */
 
 native float TFDB_GetLastSpawnTime(int iIndex);
-
-/**
- * Gets if a rocket can be dragged.
- *
- * @note Drag settings have no effect on legacy homing rockets.
- *
- * @param iIndex    Rocket index.
- * @return          True if the rocket can be dragged, false otherwise.
- * @error           Invalid index.
-*/
-
-native bool TFDB_GetIsRocketDraggable(int iIndex);
-
-/**
- * Sets if a rocket can be dragged.
- *
- * @note Drag settings have no effect on legacy homing rockets.
- *
- * @param iIndex        Rocket index.
- * @param bDraggable    Can be dragged or not.
- * @noreturn
- * @error               Invalid index.
-*/
-
-native void TFDB_SetIsRocketDraggable(int iIndex, bool bDraggable);
 
 /**
  * Gets the bounces count of a rocket.
@@ -1517,7 +1290,7 @@ native void TFDB_GetRocketClassName(int iClass, char[] strBuffer, int iMaxLen);
  * @error            Invalid rocket class.
 */
 
-native void TFDB_SetRocketClassName(int iClass, char[] strName);
+native void TFDB_SetRocketClassName(int iClass, const char[] strName);
 
 /**
  * Gets the long name of a rocket class.
@@ -1540,7 +1313,7 @@ native void TFDB_GetRocketClassLongName(int iClass, char[] strBuffer, int iMaxLe
  * @error            Invalid rocket class.
 */
 
-native void TFDB_SetRocketClassLongName(int iClass, char[] strName);
+native void TFDB_SetRocketClassLongName(int iClass, const char[] strName);
 
 /**
  * Gets the custom model path of a rocket class.
@@ -1563,7 +1336,7 @@ native void TFDB_GetRocketClassModel(int iClass, char[] strBuffer, int iMaxLen);
  * @error            Invalid rocket class.
 */
 
-native void TFDB_SetRocketClassModel(int iClass, char[] strPath);
+native void TFDB_SetRocketClassModel(int iClass, const char[] strPath);
 
 /**
  * Gets the trail particle of a rocket class.
@@ -1586,7 +1359,7 @@ native void TFDB_GetRocketClassTrail(int iClass, char[] strBuffer, int iMaxLen);
  * @error            Invalid rocket class.
 */
 
-native void TFDB_SetRocketClassTrail(int iClass, char[] strPath);
+native void TFDB_SetRocketClassTrail(int iClass, const char[] strPath);
 
 /**
  * Gets the sprite trail material path of a rocket class (no extension).
@@ -1609,7 +1382,7 @@ native void TFDB_GetRocketClassSprite(int iClass, char[] strBuffer, int iMaxLen)
  * @error            Invalid rocket class.
 */
 
-native void TFDB_SetRocketClassSprite(int iClass, char[] strPath);
+native void TFDB_SetRocketClassSprite(int iClass, const char[] strPath);
 
 /**
  * Gets the sprite trail color of a rocket class.
@@ -1626,13 +1399,13 @@ native void TFDB_GetRocketClassSpriteColor(int iClass, char[] strBuffer, int iMa
 /**
  * Sets the sprite trail color of a rocket class.
  *
- * @param iClass     Rocket class.
- * @param strPath    New rocket class sprite trail color.
+ * @param iClass       Rocket class.
+ * @param strBuffer    New rocket class sprite trail color.
  * @noreturn
- * @error            Invalid rocket class.
+ * @error              Invalid rocket class.
 */
 
-native void TFDB_SetRocketClassSpriteColor(int iClass, char[] strPath);
+native void TFDB_SetRocketClassSpriteColor(int iClass, const char[] strBuffer);
 
 /**
  * Gets the sprite trail lifetime of a rocket class.
@@ -1739,7 +1512,7 @@ native void TFDB_GetRocketClassSpawnSound(int iClass, char[] strBuffer, int iMax
  * @error            Invalid rocket class.
 */
 
-native void TFDB_SetRocketClassSpawnSound(int iClass, char[] strPath);
+native void TFDB_SetRocketClassSpawnSound(int iClass, const char[] strPath);
 
 /**
  * Gets the custom beep sound of a rocket class.
@@ -1762,7 +1535,7 @@ native void TFDB_GetRocketClassBeepSound(int iClass, char[] strBuffer, int iMaxL
  * @error            Invalid rocket class.
 */
 
-native void TFDB_SetRocketClassBeepSound(int iClass, char[] strPath);
+native void TFDB_SetRocketClassBeepSound(int iClass, const char[] strPath);
 
 /**
  * Gets the custom alert sound of a rocket class.
@@ -1785,7 +1558,7 @@ native void TFDB_GetRocketClassAlertSound(int iClass, char[] strBuffer, int iMax
  * @error            Invalid rocket class.
 */
 
-native void TFDB_SetRocketClassAlertSound(int iClass, char[] strPath);
+native void TFDB_SetRocketClassAlertSound(int iClass, const char[] strPath);
 
 /**
  * Gets the critical rocket spawn chance of a rocket class.
@@ -2017,7 +1790,7 @@ native void TFDB_DestroySpawners();
  * @noreturn
 */
 
-native void TFDB_ParseConfigurations(char[] strConfigFile = "general.cfg");
+native void TFDB_ParseConfigurations(const char[] strConfigFile = "general.cfg");
 
 /**
  * Assigns all spawn points a spawner.
@@ -2054,6 +1827,50 @@ native void TFDB_RocketOtherThink(int iIndex);
 
 native void TFDB_RocketLegacyThink(int iIndex);
 
+/**
+ * Gets the state bitmask of a rocket.
+ *
+ * @param iIndex    Rocket index.
+ * @return          Rocket state bitmask.
+ * @error           Invalid index.
+*/
+
+native RocketState TFDB_GetRocketState(int iIndex);
+
+/**
+ * Sets the state bitmask of a rocket.
+ *
+ * @param iIndex    Rocket index.
+ * @param iState    New state bitmask.
+ * @noreturn
+ * @error           Invalid index.
+*/
+
+native void TFDB_SetRocketState(int iIndex, RocketState iState);
+
+/**
+ * Gets the stealing information of a client. Contains an "eRocketSteal" enum struct.
+ *
+ * @note Once finished, close the handle.
+ *
+ * @param iClient    Client index.
+ * @return           Datapack handle.
+ * @error            Invalid index.
+*/
+
+native DataPack TFDB_GetStealInfo(int iClient);
+
+/**
+ * Sets the stealing information of a client. For use with an "eRocketSteal" enum struct.
+ *
+ * @param iClient       Client index.
+ * @param hStealInfo    New steal info.
+ * @noreturn
+ * @error               Invalid index.
+*/
+
+native void TFDB_SetStealInfo(int iClient, DataPack hStealInfo);
+
 public SharedPlugin __pl_TFDB =
 {
 	name = "tfdb",
@@ -2079,8 +1896,6 @@ public __pl_TFDB_SetNTVOptional()
 	MarkNativeAsOptional("TFDB_SetRocketTarget");
 	MarkNativeAsOptional("TFDB_GetRocketEventDeflections");
 	MarkNativeAsOptional("TFDB_SetRocketEventDeflections");
-	MarkNativeAsOptional("TFDB_GetRocketAltDeflections");
-	MarkNativeAsOptional("TFDB_SetRocketAltDeflections");
 	MarkNativeAsOptional("TFDB_GetRocketDeflections");
 	MarkNativeAsOptional("TFDB_SetRocketDeflections");
 	MarkNativeAsOptional("TFDB_GetRocketClass");
@@ -2122,14 +1937,8 @@ public __pl_TFDB_SetNTVOptional()
 	MarkNativeAsOptional("TFDB_SetRocketClassDragTimeMax");
 	MarkNativeAsOptional("TFDB_SetRocketClassCount");
 	MarkNativeAsOptional("TFDB_SetRocketEntity");
-	MarkNativeAsOptional("TFDB_GetSavedParameters");
-	MarkNativeAsOptional("TFDB_SetSavedParameters");
-	MarkNativeAsOptional("TFDB_GetSavedRocketClassFlags");
-	MarkNativeAsOptional("TFDB_SetSavedRocketClassFlags");
 	MarkNativeAsOptional("TFDB_GetRocketClassMaxBounces");
 	MarkNativeAsOptional("TFDB_SetRocketClassMaxBounces");
-	MarkNativeAsOptional("TFDB_GetRocketClassSavedMaxBounces");
-	MarkNativeAsOptional("TFDB_SetRocketClassSavedMaxBounces");
 	MarkNativeAsOptional("TFDB_GetSpawnersName");
 	MarkNativeAsOptional("TFDB_SetSpawnersName");
 	MarkNativeAsOptional("TFDB_GetSpawnersMaxRockets");
@@ -2138,8 +1947,6 @@ public __pl_TFDB_SetNTVOptional()
 	MarkNativeAsOptional("TFDB_SetSpawnersInterval");
 	MarkNativeAsOptional("TFDB_GetSpawnersChancesTable");
 	MarkNativeAsOptional("TFDB_SetSpawnersChancesTable");
-	MarkNativeAsOptional("TFDB_GetSavedChancesTable");
-	MarkNativeAsOptional("TFDB_SetSavedChancesTable");
 	MarkNativeAsOptional("TFDB_GetSpawnersCount");
 	MarkNativeAsOptional("TFDB_SetSpawnersCount");
 	MarkNativeAsOptional("TFDB_GetCurrentRedSpawn");
@@ -2179,15 +1986,7 @@ public __pl_TFDB_SetNTVOptional()
 	MarkNativeAsOptional("TFDB_GetRocketLastBeepTime");
 	MarkNativeAsOptional("TFDB_SetRocketLastBeepTime");
 	MarkNativeAsOptional("TFDB_GetRocketCount");
-	MarkNativeAsOptional("TFDB_GetIsRocketBouncing");
-	MarkNativeAsOptional("TFDB_SetIsRocketBouncing");
-	MarkNativeAsOptional("TFDB_GetIsRocketStolen");
-	MarkNativeAsOptional("TFDB_SetIsRocketStolen");
-	MarkNativeAsOptional("TFDB_GetPreventingDelay");
-	MarkNativeAsOptional("TFDB_SetPreventingDelay");
 	MarkNativeAsOptional("TFDB_GetLastSpawnTime");
-	MarkNativeAsOptional("TFDB_GetIsRocketDraggable");
-	MarkNativeAsOptional("TFDB_SetIsRocketDraggable");
 	MarkNativeAsOptional("TFDB_GetRocketBounces");
 	MarkNativeAsOptional("TFDB_SetRocketBounces");
 	MarkNativeAsOptional("TFDB_GetRocketClassName");
@@ -2242,5 +2041,9 @@ public __pl_TFDB_SetNTVOptional()
 	MarkNativeAsOptional("TFDB_HomingRocketThink");
 	MarkNativeAsOptional("TFDB_RocketOtherThink");
 	MarkNativeAsOptional("TFDB_RocketLegacyThink");
+	MarkNativeAsOptional("TFDB_GetRocketState");
+	MarkNativeAsOptional("TFDB_SetRocketState");
+	MarkNativeAsOptional("TFDB_GetStealInfo");
+	MarkNativeAsOptional("TFDB_SetStealInfo");
 }
 #endif

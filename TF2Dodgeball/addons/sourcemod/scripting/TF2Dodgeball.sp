@@ -22,7 +22,7 @@
 // ---- Plugin-related constants ---------------------------------------------------
 #define PLUGIN_NAME             "[TF2] Dodgeball"
 #define PLUGIN_AUTHOR           "Damizean, edited by x07x08 with features from YADBP 1.4.2 & Redux"
-#define PLUGIN_VERSION          "1.6.2"
+#define PLUGIN_VERSION          "1.7.0"
 #define PLUGIN_CONTACT          "https://github.com/x07x08/TF2-Dodgeball-Modified"
 
 // ---- Flags and types constants --------------------------------------------------
@@ -97,19 +97,15 @@ int         g_iRocketBluCriticalEntity  [MAX_ROCKETS];
 int         g_iRocketTarget             [MAX_ROCKETS];
 int         g_iRocketClass              [MAX_ROCKETS];
 RocketFlags g_iRocketFlags              [MAX_ROCKETS];
+RocketState g_iRocketState              [MAX_ROCKETS];
 float       g_fRocketSpeed              [MAX_ROCKETS];
 float       g_fRocketMphSpeed           [MAX_ROCKETS];
 float       g_fRocketDirection          [MAX_ROCKETS][3];
 int         g_iRocketDeflections        [MAX_ROCKETS];
-int         g_iRocketAltDeflections     [MAX_ROCKETS];
 int         g_iRocketEventDeflections   [MAX_ROCKETS];
 float       g_fRocketLastDeflectionTime [MAX_ROCKETS];
 float       g_fRocketLastBeepTime       [MAX_ROCKETS];
-bool        g_bIsRocketBouncing         [MAX_ROCKETS];
-bool        g_bIsRocketStolen           [MAX_ROCKETS];
-bool        g_bPreventingDelay          [MAX_ROCKETS];
 float       g_fLastSpawnTime            [MAX_ROCKETS];
-bool        g_bIsRocketDraggable        [MAX_ROCKETS];
 int         g_iRocketBounces            [MAX_ROCKETS];
 int         g_iRocketCount;
 
@@ -151,10 +147,7 @@ DataPack       g_hRocketClassCmdsOnDeflect    [MAX_ROCKET_CLASSES];
 DataPack       g_hRocketClassCmdsOnKill       [MAX_ROCKET_CLASSES];
 DataPack       g_hRocketClassCmdsOnExplode    [MAX_ROCKET_CLASSES];
 DataPack       g_hRocketClassCmdsOnNoTarget   [MAX_ROCKET_CLASSES];
-float          g_fSavedParameters             [MAX_ROCKET_CLASSES][10]; // Should have used an enum
-RocketFlags    g_iSavedRocketClassFlags       [MAX_ROCKET_CLASSES];
 int            g_iRocketClassMaxBounces       [MAX_ROCKET_CLASSES];
-int            g_iRocketClassSavedMaxBounces  [MAX_ROCKET_CLASSES];
 float          g_fRocketClassBounceScale      [MAX_ROCKET_CLASSES];
 int            g_iRocketClassCount;
 
@@ -163,7 +156,6 @@ char      g_strSpawnersName        [MAX_SPAWNER_CLASSES][32];
 int       g_iSpawnersMaxRockets    [MAX_SPAWNER_CLASSES];
 float     g_fSpawnersInterval      [MAX_SPAWNER_CLASSES];
 ArrayList g_hSpawnersChancesTable  [MAX_SPAWNER_CLASSES];
-ArrayList g_hSavedChancesTable     [MAX_SPAWNER_CLASSES];
 StringMap g_hSpawnersTrie;
 int       g_iSpawnersCount;
 
@@ -188,7 +180,6 @@ int g_iDefaultBluSpawner;
 // -----<<< Forward handles >>>-----
 Handle g_hForwardOnRocketCreated;
 Handle g_hForwardOnRocketCreatedPre;
-Handle g_hForwardOnRocketAltDeflect;
 Handle g_hForwardOnRocketDeflect;
 Handle g_hForwardOnRocketDeflectPre;
 Handle g_hForwardOnRocketSteal;
@@ -197,6 +188,7 @@ Handle g_hForwardOnRocketDelay;
 Handle g_hForwardOnRocketBounce;
 Handle g_hForwardOnRocketBouncePre;
 Handle g_hForwardOnRocketsConfigExecuted;
+Handle g_hForwardOnRocketStateChanged;
 
 bool g_bIgnoreHook;
 
@@ -269,9 +261,6 @@ public APLRes AskPluginLoad2(Handle hMyself, bool bLate, char[] strError, int iE
 	CreateNative("TFDB_GetRocketEventDeflections", Native_GetRocketEventDeflections);
 	CreateNative("TFDB_SetRocketEventDeflections", Native_SetRocketEventDeflections);
 	
-	CreateNative("TFDB_GetRocketAltDeflections", Native_GetRocketAltDeflections);
-	CreateNative("TFDB_SetRocketAltDeflections", Native_SetRocketAltDeflections);
-	
 	CreateNative("TFDB_GetRocketDeflections", Native_GetRocketDeflections);
 	CreateNative("TFDB_SetRocketDeflections", Native_SetRocketDeflections);
 	
@@ -335,17 +324,8 @@ public APLRes AskPluginLoad2(Handle hMyself, bool bLate, char[] strError, int iE
 	
 	CreateNative("TFDB_SetRocketEntity", Native_SetRocketEntity);
 	
-	CreateNative("TFDB_GetSavedParameters", Native_GetSavedParameters);
-	CreateNative("TFDB_SetSavedParameters", Native_SetSavedParameters);
-	
-	CreateNative("TFDB_GetSavedRocketClassFlags", Native_GetSavedRocketClassFlags);
-	CreateNative("TFDB_SetSavedRocketClassFlags", Native_SetSavedRocketClassFlags);
-	
 	CreateNative("TFDB_GetRocketClassMaxBounces", Native_GetRocketClassMaxBounces);
 	CreateNative("TFDB_SetRocketClassMaxBounces", Native_SetRocketClassMaxBounces);
-	
-	CreateNative("TFDB_GetRocketClassSavedMaxBounces", Native_GetRocketClassSavedMaxBounces);
-	CreateNative("TFDB_SetRocketClassSavedMaxBounces", Native_SetRocketClassSavedMaxBounces);
 	
 	CreateNative("TFDB_GetSpawnersName", Native_GetSpawnersName);
 	CreateNative("TFDB_SetSpawnersName", Native_SetSpawnersName);
@@ -358,9 +338,6 @@ public APLRes AskPluginLoad2(Handle hMyself, bool bLate, char[] strError, int iE
 	
 	CreateNative("TFDB_GetSpawnersChancesTable", Native_GetSpawnersChancesTable);
 	CreateNative("TFDB_SetSpawnersChancesTable", Native_SetSpawnersChancesTable);
-	
-	CreateNative("TFDB_GetSavedChancesTable", Native_GetSavedChancesTable);
-	CreateNative("TFDB_SetSavedChancesTable", Native_SetSavedChancesTable);
 	
 	CreateNative("TFDB_GetSpawnersCount", Native_GetSpawnersCount);
 	CreateNative("TFDB_SetSpawnersCount", Native_SetSpawnersCount);
@@ -421,19 +398,7 @@ public APLRes AskPluginLoad2(Handle hMyself, bool bLate, char[] strError, int iE
 	
 	CreateNative("TFDB_GetRocketCount", Native_GetRocketCount);
 	
-	CreateNative("TFDB_GetIsRocketBouncing", Native_GetIsRocketBouncing);
-	CreateNative("TFDB_SetIsRocketBouncing", Native_SetIsRocketBouncing);
-	
-	CreateNative("TFDB_GetIsRocketStolen", Native_GetIsRocketStolen);
-	CreateNative("TFDB_SetIsRocketStolen", Native_SetIsRocketStolen);
-	
-	CreateNative("TFDB_GetPreventingDelay", Native_GetPreventingDelay);
-	CreateNative("TFDB_SetPreventingDelay", Native_SetPreventingDelay);
-	
 	CreateNative("TFDB_GetLastSpawnTime", Native_GetLastSpawnTime);
-	
-	CreateNative("TFDB_GetIsRocketDraggable", Native_GetIsRocketDraggable);
-	CreateNative("TFDB_SetIsRocketDraggable", Native_SetIsRocketDraggable);
 	
 	CreateNative("TFDB_GetRocketBounces", Native_GetRocketBounces);
 	CreateNative("TFDB_SetRocketBounces", Native_SetRocketBounces);
@@ -512,6 +477,14 @@ public APLRes AskPluginLoad2(Handle hMyself, bool bLate, char[] strError, int iE
 	CreateNative("TFDB_RocketOtherThink", Native_RocketOtherThink);
 	CreateNative("TFDB_RocketLegacyThink", Native_RocketLegacyThink);
 	
+	CreateNative("TFDB_GetRocketState", Native_GetRocketState);
+	CreateNative("TFDB_SetRocketState", Native_SetRocketState);
+	
+	// https://github.com/alliedmodders/sourcepawn/issues/547
+	// https://wiki.alliedmods.net/User:Nosoop/Guide/How_to_X
+	CreateNative("TFDB_GetStealInfo", Native_GetStealInfo);
+	CreateNative("TFDB_SetStealInfo", Native_SetStealInfo);
+	
 	SetupForwards();
 	
 	RegPluginLibrary("tfdb");
@@ -530,8 +503,6 @@ void SetupForwards()
 	// Rocket index, rocket class, rocket flags
 	g_hForwardOnRocketCreatedPre = CreateGlobalForward("TFDB_OnRocketCreatedPre", ET_Event, Param_Cell, Param_CellByRef, Param_CellByRef);
 	// Rocket index, rocket entity, rocket owner
-	g_hForwardOnRocketAltDeflect = CreateGlobalForward("TFDB_OnRocketAltDeflect", ET_Ignore, Param_Cell, Param_Cell, Param_Cell);
-	// Rocket index, rocket entity, rocket owner
 	g_hForwardOnRocketDeflect = CreateGlobalForward("TFDB_OnRocketDeflect", ET_Ignore, Param_Cell, Param_Cell, Param_Cell);
 	// Rocket index, rocket entity, rocket owner, rocket target
 	g_hForwardOnRocketDeflectPre = CreateGlobalForward("TFDB_OnRocketDeflectPre", ET_Event, Param_Cell, Param_Cell, Param_Cell, Param_CellByRef);
@@ -547,6 +518,8 @@ void SetupForwards()
 	g_hForwardOnRocketBouncePre = CreateGlobalForward("TFDB_OnRocketBouncePre", ET_Event, Param_Cell, Param_Cell, Param_Array, Param_Array);
 	// Config file
 	g_hForwardOnRocketsConfigExecuted = CreateGlobalForward("TFDB_OnRocketsConfigExecuted", ET_Ignore, Param_String);
+	// Rocket index, old state, new state
+	g_hForwardOnRocketStateChanged = CreateGlobalForward("TFDB_OnRocketStateChanged", ET_Ignore, Param_Cell, Param_Cell, Param_Cell);
 }
 
 /* OnConfigsExecuted()
@@ -760,10 +733,10 @@ public void OnRoundStart(Event hEvent, char[] strEventName, bool bDontBroadcast)
         EmitSoundToAll(g_strMusic[Music_RoundStart]);
     }
     
-    for (int i = 0; i <= MaxClients; i++)
+    for (int iClient = 1; iClient <= MaxClients; iClient++)
     {
-        bStealArray[i].stoleRocket = false;
-        bStealArray[i].rocketsStolen = 0;
+        bStealArray[iClient].stoleRocket = false;
+        bStealArray[iClient].rocketsStolen = 0;
     }
 }
 
@@ -854,11 +827,6 @@ public void OnPlayerDeath(Event hEvent, char[] strEventName, bool bDontBroadcast
     if (g_bRoundStarted == false) return;
     int iAttacker = GetClientOfUserId(hEvent.GetInt("attacker"));
     int iVictim = GetClientOfUserId(hEvent.GetInt("userid"));
-    
-    if (!IsValidClient(iAttacker))
-    {
-        iAttacker = 0;
-    }
     
     if (IsValidClient(iVictim))
     {
@@ -1159,17 +1127,13 @@ void CreateRocket(int iSpawnerEntity, int iSpawnerClass, int iTeam, int iClass =
             g_iRocketTarget[iIndex]             = EntIndexToEntRef(iTarget);
             g_iRocketClass[iIndex]              = iClass;
             g_iRocketDeflections[iIndex]        = 0;
-            g_iRocketAltDeflections[iIndex]     = 0;
             g_iRocketEventDeflections[iIndex]   = 0;
-            g_bIsRocketDraggable[iIndex]        = false;
-            g_bIsRocketBouncing[iIndex]         = false;
-            g_bPreventingDelay[iIndex]          = false;
             g_iRocketBounces[iIndex]            = 0;
             g_fRocketLastDeflectionTime[iIndex] = GetGameTime();
             g_fRocketLastBeepTime[iIndex]       = GetGameTime();
             g_fRocketSpeed[iIndex]              = CalculateRocketSpeed(iClass, fModifier);
             g_fRocketMphSpeed[iIndex]           = CalculateRocketSpeed(iClass, fModifier) * 0.042614;
-            g_bIsRocketStolen[iIndex]           = false;
+            Internal_SetRocketState(iIndex, RocketState_None);
             
             CopyVectors(fDirection, g_fRocketDirection[iIndex]);
             SetEntDataFloat(iEntity, FindSendPropInfo("CTFProjectile_Rocket", "m_iDeflected") + 4, CalculateRocketDamage(iClass, fModifier), true);
@@ -1375,12 +1339,10 @@ void CreateRocket(int iSpawnerEntity, int iSpawnerClass, int iTeam, int iClass =
 
 public Action TrailSetTransmit(int iEntity, int iClient)
 {
-	if (IsValidEntity(iEntity))
+	if (IsValidEntity(iEntity) && (GetEdictFlags(iEntity) & FL_EDICT_ALWAYS))
 	{
-		if(GetEdictFlags(iEntity) & FL_EDICT_ALWAYS)
-		{
-			SetEdictFlags(iEntity, (GetEdictFlags(iEntity) ^ FL_EDICT_ALWAYS)); // Stops the game from setting back the flag
-		}
+		// Stops the game from setting back the flag
+		SetEdictFlags(iEntity, (GetEdictFlags(iEntity) ^ FL_EDICT_ALWAYS));
 	}
 	
 	return g_bClientHideTrails[iClient] ? Plugin_Handled : Plugin_Continue;
@@ -1500,10 +1462,10 @@ void HomingRocketThink(int iIndex)
     int iDeflectionCount = g_iRocketEventDeflections[iIndex];
     float fModifier      = CalculateModifier(iClass, iDeflectionCount);
     
-    if ((iDeflectionCount > g_iRocketAltDeflections[iIndex]))
+    if ((iDeflectionCount > g_iRocketDeflections[iIndex]) && !(g_iRocketState[iIndex] & RocketState_Dragging))
     {
         int iClient = GetEntPropEnt(iEntity, Prop_Send, "m_hOwnerEntity");
-        g_bIsRocketDraggable[iIndex] = true;
+        Internal_SetRocketState(iIndex, (g_iRocketState[iIndex] | RocketState_CanDrag));
         if (IsValidClient(iClient))
         {
             float fViewAngles[3], fDirection[3];
@@ -1522,16 +1484,14 @@ void HomingRocketThink(int iIndex)
             }
         }
         // Set new deflection count
-        g_iRocketAltDeflections[iIndex]     = iDeflectionCount;
+        Internal_SetRocketState(iIndex, (g_iRocketState[iIndex] | RocketState_Dragging));
         g_fRocketLastDeflectionTime[iIndex] = GetGameTime();
-        
-        Forward_OnRocketAltDeflect(iIndex, iEntity, iClient);
     }
     else
     {
         if ((GetGameTime() - g_fRocketLastDeflectionTime[iIndex]) <= g_fRocketClassDragTimeMax[iClass] + GetTickInterval())
         {
-            if ((g_fRocketClassDragTimeMin[iClass] <= (GetGameTime() - g_fRocketLastDeflectionTime[iIndex])) && g_bIsRocketDraggable[iIndex])
+            if ((g_fRocketClassDragTimeMin[iClass] <= (GetGameTime() - g_fRocketLastDeflectionTime[iIndex])) && (g_iRocketState[iIndex] & RocketState_CanDrag))
             {
                 int iClient = GetEntPropEnt(iEntity, Prop_Send, "m_hOwnerEntity");
                 if (IsValidClient(iClient))
@@ -1557,10 +1517,6 @@ void HomingRocketThink(int iIndex)
                 if (TestFlags(iFlags, RocketFlag_OnNoTargetCmd))
                 {
                     int iClient = iOwner;
-                    if (!IsValidClient(iClient))
-                    {
-                        iClient = 0;
-                    }
                     
                     ExecuteCommands(g_hRocketClassCmdsOnNoTarget[iClass], iClass, iEntity, iClient, iTarget, g_iLastDeadClient, g_fRocketSpeed[iIndex], iDeflectionCount, g_fRocketMphSpeed[iIndex]);
                 }
@@ -1577,17 +1533,12 @@ void HomingRocketThink(int iIndex)
             {
                 // Calculate new direction from the player's forward
                 int iClient = GetEntPropEnt(iEntity, Prop_Send, "m_hOwnerEntity");
-                g_bIsRocketStolen[iIndex] = false;
-                if (IsValidClient(iClient))
+                Internal_SetRocketState(iIndex, (g_iRocketState[iIndex] & ~RocketState_Dragging));
+                Internal_SetRocketState(iIndex, (g_iRocketState[iIndex] & ~RocketState_Stolen));
+                
+                if (IsValidClient(iClient) && !(iFlags & RocketFlag_CanBeStolen))
                 {
-                    if (!(iFlags & RocketFlag_CanBeStolen))
-                    {
-                        CheckStolenRocket(iClient, iIndex);
-                    }
-                }
-                else
-                {
-                    iClient = 0;
+                    CheckStolenRocket(iClient, iIndex);
                 }
                 
                 // Set new target & deflection count
@@ -1596,19 +1547,16 @@ void HomingRocketThink(int iIndex)
                 g_iRocketDeflections[iIndex] = iDeflectionCount;
                 g_fRocketSpeed[iIndex]       = CalculateRocketSpeed(iClass, fModifier);
                 g_fRocketMphSpeed[iIndex]    = CalculateRocketSpeed(iClass, fModifier) * 0.042614;
-                g_bPreventingDelay[iIndex]   = false;
+                Internal_SetRocketState(iIndex, (g_iRocketState[iIndex] & ~RocketState_Delayed));
                 SetEntDataFloat(iEntity, FindSendPropInfo("CTFProjectile_Rocket", "m_iDeflected") + 4, CalculateRocketDamage(iClass, fModifier), true);
                 if (TestFlags(iFlags, RocketFlag_ElevateOnDeflect)) g_iRocketFlags[iIndex] |= RocketFlag_Elevating;
                 
-                if (iFlags & RocketFlag_IsSpeedLimited)
+                if ((iFlags & RocketFlag_IsSpeedLimited) && (g_fRocketSpeed[iIndex] >= g_fRocketClassSpeedLimit[iClass]))
                 {
-                    if (g_fRocketSpeed[iIndex] >= g_fRocketClassSpeedLimit[iClass])
-                    {
-                        g_fRocketSpeed[iIndex] = g_fRocketClassSpeedLimit[iClass];
-                    }
+                    g_fRocketSpeed[iIndex] = g_fRocketClassSpeedLimit[iClass];
                 }
                 
-                if (g_bIsRocketStolen[iIndex] && g_hCvarStealPreventionDamage.BoolValue)
+                if (g_hCvarStealPreventionDamage.BoolValue && (g_iRocketState[iIndex] & RocketState_Stolen))
                 {
                     SetEntDataFloat(iEntity, FindSendPropInfo("CTFProjectile_Rocket", "m_iDeflected") + 4, 0.0, true);
                 }
@@ -1656,12 +1604,9 @@ void HomingRocketThink(int iIndex)
                         fDirectionToTarget[2] = g_fRocketDirection[iIndex][2];
                     }
                     
-                    if (g_iRocketFlags[iIndex] & RocketFlag_IsTRLimited)
+                    if ((g_iRocketFlags[iIndex] & RocketFlag_IsTRLimited) && (fTurnRate >= g_fRocketClassTurnRateLimit[iClass] / g_fTickModifier))
                     {
-                        if (fTurnRate >= g_fRocketClassTurnRateLimit[iClass] / g_fTickModifier)
-                        {
-                            fTurnRate = g_fRocketClassTurnRateLimit[iClass] / g_fTickModifier;
-                        }
+                        fTurnRate = g_fRocketClassTurnRateLimit[iClass] / g_fTickModifier;
                     }
                     
                     // Smoothly change the orientation to the new one.
@@ -1671,7 +1616,7 @@ void HomingRocketThink(int iIndex)
         }
     }
     // Done
-    if (!g_bIsRocketBouncing[iIndex])
+    if (!(g_iRocketState[iIndex] & RocketState_Bouncing))
     {
         ApplyRocketParameters(iIndex);
     }
@@ -1717,7 +1662,7 @@ void RocketOtherThink(int iIndex)
         }
     }
     
-    g_bIsRocketBouncing[iIndex] = false;
+    Internal_SetRocketState(iIndex, (g_iRocketState[iIndex] & ~RocketState_Bouncing));
 }
 
 void RocketLegacyThink(int iIndex)
@@ -1744,10 +1689,6 @@ void RocketLegacyThink(int iIndex)
         if (TestFlags(iFlags, RocketFlag_OnNoTargetCmd))
         {
             int iClient = iOwner;
-            if (!IsValidClient(iClient))
-            {
-                iClient = 0;
-            }
             
             ExecuteCommands(g_hRocketClassCmdsOnNoTarget[iClass], iClass, iEntity, iClient, iTarget, g_iLastDeadClient, g_fRocketSpeed[iIndex], iDeflectionCount, g_fRocketMphSpeed[iIndex]);
         }
@@ -1764,7 +1705,7 @@ void RocketLegacyThink(int iIndex)
     {
         // Calculate new direction from the player's forward
         int iClient = GetEntPropEnt(iEntity, Prop_Send, "m_hOwnerEntity");
-        g_bIsRocketStolen[iIndex] = false;
+        Internal_SetRocketState(iIndex, (g_iRocketState[iIndex] & ~RocketState_Stolen));
         if (IsValidClient(iClient))
         {
             float fViewAngles[3], fDirection[3];
@@ -1786,10 +1727,6 @@ void RocketLegacyThink(int iIndex)
                 }
             }
         }
-        else
-        {
-            iClient = 0;
-        }
         
         // Set new target & deflection count
         iTarget = SelectTarget(iTargetTeam, iIndex);
@@ -1798,19 +1735,16 @@ void RocketLegacyThink(int iIndex)
         g_fRocketLastDeflectionTime[iIndex] = GetGameTime();
         g_fRocketSpeed[iIndex]              = CalculateRocketSpeed(iClass, fModifier);
         g_fRocketMphSpeed[iIndex]           = CalculateRocketSpeed(iClass, fModifier) * 0.042614;
-        g_bPreventingDelay[iIndex]          = false;
+        Internal_SetRocketState(iIndex, (g_iRocketState[iIndex] & ~RocketState_Delayed));
         SetEntDataFloat(iEntity, FindSendPropInfo("CTFProjectile_Rocket", "m_iDeflected") + 4, CalculateRocketDamage(iClass, fModifier), true);
         if (TestFlags(iFlags, RocketFlag_ElevateOnDeflect)) g_iRocketFlags[iIndex] |= RocketFlag_Elevating;
         
-        if(iFlags & RocketFlag_IsSpeedLimited)
+        if((iFlags & RocketFlag_IsSpeedLimited) && (g_fRocketSpeed[iIndex] >= g_fRocketClassSpeedLimit[iClass]))
         {
-            if (g_fRocketSpeed[iIndex] >= g_fRocketClassSpeedLimit[iClass])
-            {
-                g_fRocketSpeed[iIndex] = g_fRocketClassSpeedLimit[iClass];
-            }
+            g_fRocketSpeed[iIndex] = g_fRocketClassSpeedLimit[iClass];
         }
         
-        if(g_bIsRocketStolen[iIndex] && g_hCvarStealPreventionDamage.BoolValue)
+        if (g_hCvarStealPreventionDamage.BoolValue && (g_iRocketState[iIndex] & RocketState_Stolen))
         {
             SetEntDataFloat(iEntity, FindSendPropInfo("CTFProjectile_Rocket", "m_iDeflected") + 4, 0.0, true);
         }
@@ -1867,12 +1801,9 @@ void RocketLegacyThink(int iIndex)
                 }
             }
             
-            if(g_iRocketFlags[iIndex] & RocketFlag_IsTRLimited)
+            if((g_iRocketFlags[iIndex] & RocketFlag_IsTRLimited) && (fTurnRate >= g_fRocketClassTurnRateLimit[iClass]))
             {
-                if (fTurnRate >= g_fRocketClassTurnRateLimit[iClass])
-                {
-                    fTurnRate = g_fRocketClassTurnRateLimit[iClass];
-                }
+                fTurnRate = g_fRocketClassTurnRateLimit[iClass];
             }
             
             // Smoothly change the orientation to the new one.
@@ -2047,20 +1978,20 @@ void DestroyRocketClasses()
 {
     for (int iIndex = 0; iIndex < g_iRocketClassCount; iIndex++)
     {
-        DataPack hCmdOnSpawn   = g_hRocketClassCmdsOnSpawn[iIndex];
-        DataPack hCmdOnKill    = g_hRocketClassCmdsOnKill[iIndex];
-        DataPack hCmdOnExplode = g_hRocketClassCmdsOnExplode[iIndex];
-        DataPack hCmdOnDeflect = g_hRocketClassCmdsOnDeflect[iIndex];
+        DataPack hCmdOnSpawn    = g_hRocketClassCmdsOnSpawn[iIndex];
+        DataPack hCmdOnKill     = g_hRocketClassCmdsOnKill[iIndex];
+        DataPack hCmdOnExplode  = g_hRocketClassCmdsOnExplode[iIndex];
+        DataPack hCmdOnDeflect  = g_hRocketClassCmdsOnDeflect[iIndex];
         DataPack hCmdOnNoTarget = g_hRocketClassCmdsOnNoTarget[iIndex];
-        if (hCmdOnSpawn   != null) delete hCmdOnSpawn;
-        if (hCmdOnKill    != null) delete hCmdOnKill;
-        if (hCmdOnExplode != null) delete hCmdOnExplode;
-        if (hCmdOnDeflect != null) delete hCmdOnDeflect;
+        if (hCmdOnSpawn   != null)  delete hCmdOnSpawn;
+        if (hCmdOnKill    != null)  delete hCmdOnKill;
+        if (hCmdOnExplode != null)  delete hCmdOnExplode;
+        if (hCmdOnDeflect != null)  delete hCmdOnDeflect;
         if (hCmdOnNoTarget != null) delete hCmdOnNoTarget;
-        g_hRocketClassCmdsOnSpawn[iIndex]   = null;
-        g_hRocketClassCmdsOnKill[iIndex]    = null;
-        g_hRocketClassCmdsOnExplode[iIndex] = null;
-        g_hRocketClassCmdsOnDeflect[iIndex] = null;
+        g_hRocketClassCmdsOnSpawn[iIndex]    = null;
+        g_hRocketClassCmdsOnKill[iIndex]     = null;
+        g_hRocketClassCmdsOnExplode[iIndex]  = null;
+        g_hRocketClassCmdsOnDeflect[iIndex]  = null;
         g_hRocketClassCmdsOnNoTarget[iIndex] = null;
     }
     g_iRocketClassCount = 0;
@@ -2081,7 +2012,6 @@ void DestroySpawners()
     for (int iIndex = 0; iIndex < g_iSpawnersCount; iIndex++)
     {
         delete g_hSpawnersChancesTable[iIndex];
-        delete g_hSavedChancesTable[iIndex];
     }
     g_iSpawnersCount  = 0;
     g_iSpawnPointsRedCount = 0;
@@ -2166,16 +2096,8 @@ void RegisterCommands()
 {
     RegServerCmd("tf_dodgeball_explosion", CmdExplosion);
     RegServerCmd("tf_dodgeball_shockwave", CmdShockwave);
-    RegAdminCmd("tf_dodgeball_rocketspeed", CmdChangeSpeed, ADMFLAG_CONFIG, "Change rocket speed parameters.");
-    RegAdminCmd("tf_dodgeball_rocketturnrate", CmdChangeTurnRate, ADMFLAG_CONFIG, "Change rocket turnrate parameters.");
-    RegAdminCmd("tf_dodgeball_rocketelevation", CmdChangeElevation, ADMFLAG_CONFIG, "Change rocket elevation parameters.");
-    RegAdminCmd("tf_dodgeball_spawners", CmdChangeSpawners, ADMFLAG_CONFIG, "Change the spawners' settings.");
-    RegAdminCmd("tf_dodgeball_refresh", CmdRefresh, ADMFLAG_CONFIG, "Refresh the configuration.");
-    RegAdminCmd("tf_dodgeball_destroyrockets", CmdDestroyRockets, ADMFLAG_CONFIG, "Destroy all current rockets.");
-    RegAdminCmd("tf_dodgeball_rocketotherparams", CmdOtherParams, ADMFLAG_CONFIG, "Change other rocket parameters.");
-    RegAdminCmd("tf_dodgeball_rocketdragparams", CmdDragParams, ADMFLAG_CONFIG, "Change rocket drag parameters.");
-    RegConsoleCmd("sm_togglerockettrails", CmdHideTrails);
-    RegConsoleCmd("sm_togglerocketsprites", CmdHideSprites);
+    RegConsoleCmd("sm_rockettrails", CmdHideTrails);
+    RegConsoleCmd("sm_rocketspritetrails", CmdHideSprites);
 }
 
 /* CmdExplosion()
@@ -2205,7 +2127,7 @@ public Action CmdExplosion(int iArgs)
     }
     else
     {
-        PrintToServer("%t", g_bEnabled ? "Command_DBExplosion_Usage" : "Command_Disabled");
+        CPrintToServer("%t", g_bEnabled ? "Command_DBExplosion_Usage" : "Command_Disabled");
     }
     
     return Plugin_Handled;
@@ -2269,468 +2191,10 @@ public Action CmdShockwave(int iArgs)
     }
     else
     {
-        PrintToServer("%t", g_bEnabled ? "Command_DBShockwave_Usage" : "Command_Disabled");
+        CPrintToServer("%t", g_bEnabled ? "Command_DBShockwave_Usage" : "Command_Disabled");
     }
     
     return Plugin_Handled;
-}
-
-public Action CmdChangeSpeed(int iClient, int iArgs)
-{
-	if (iArgs == 4 && g_bEnabled)
-	{
-		char strBuffer[8]; int iIndex; float fRocketSpeed, fRocketSpeedIncrement, fRocketSpeedLimit;
-		GetCmdArg(1, strBuffer, sizeof(strBuffer)); iIndex                = StringToInt(strBuffer);
-		GetCmdArg(2, strBuffer, sizeof(strBuffer)); fRocketSpeed          = StringToFloat(strBuffer);
-		GetCmdArg(3, strBuffer, sizeof(strBuffer)); fRocketSpeedIncrement = StringToFloat(strBuffer);
-		GetCmdArg(4, strBuffer, sizeof(strBuffer)); fRocketSpeedLimit     = StringToFloat(strBuffer);
-		
-		if ((iIndex >= g_iRocketClassCount) || (iIndex < 0))
-		{
-			return Plugin_Handled;
-		}
-		
-		if (fRocketSpeedLimit == 0)
-		{
-			if (g_iRocketClassFlags[iIndex] & RocketFlag_IsSpeedLimited)
-			{
-				g_iRocketClassFlags[iIndex] &= ~RocketFlag_IsSpeedLimited;
-			}
-		}
-		else if (fRocketSpeedLimit == -1)
-		{
-			g_fRocketClassSpeedLimit[iIndex] = g_fSavedParameters[iIndex][2];
-			
-			if ((g_iSavedRocketClassFlags[iIndex] & RocketFlag_IsSpeedLimited) && !(g_iRocketClassFlags[iIndex] & RocketFlag_IsSpeedLimited))
-			{
-				g_iRocketClassFlags[iIndex] |= RocketFlag_IsSpeedLimited;
-			}
-			else if (!(g_iSavedRocketClassFlags[iIndex] & RocketFlag_IsSpeedLimited) && (g_iRocketClassFlags[iIndex] & RocketFlag_IsSpeedLimited))
-			{
-				g_iRocketClassFlags[iIndex] &= ~RocketFlag_IsSpeedLimited;
-			}
-		}
-		else
-		{
-			if (!(g_iRocketClassFlags[iIndex] & RocketFlag_IsSpeedLimited))
-			{
-				g_iRocketClassFlags[iIndex] |= RocketFlag_IsSpeedLimited;
-			}
-			
-			g_fRocketClassSpeedLimit[iIndex]  = fRocketSpeedLimit;
-		}
-		
-		g_fRocketClassSpeed[iIndex]          = fRocketSpeed == -1 ? g_fSavedParameters[iIndex][0] : fRocketSpeed;
-		g_fRocketClassSpeedIncrement[iIndex] = fRocketSpeedIncrement == -1 ? g_fSavedParameters[iIndex][1] : fRocketSpeedIncrement;
-		
-		DestroyRockets();
-	}
-	else
-	{
-		CReplyToCommand(iClient, "%t", g_bEnabled ? "Command_DBRocketSpeed_Usage" : "Command_Disabled");
-	}
-	
-	return Plugin_Handled;
-}
-
-public Action CmdChangeTurnRate(int iClient, int iArgs)
-{
-	if (iArgs == 4 && g_bEnabled)
-	{
-		char strBuffer[8]; int iIndex; float fRocketTurnRate, fRocketTurnRateIncrement, fRocketTurnRateLimit;
-		GetCmdArg(1, strBuffer, sizeof(strBuffer)); iIndex                   = StringToInt(strBuffer);
-		GetCmdArg(2, strBuffer, sizeof(strBuffer)); fRocketTurnRate          = StringToFloat(strBuffer);
-		GetCmdArg(3, strBuffer, sizeof(strBuffer)); fRocketTurnRateIncrement = StringToFloat(strBuffer);
-		GetCmdArg(4, strBuffer, sizeof(strBuffer)); fRocketTurnRateLimit     = StringToFloat(strBuffer);
-		
-		if ((iIndex >= g_iRocketClassCount) || (iIndex < 0))
-		{
-			return Plugin_Handled;
-		}
-		
-		if (fRocketTurnRateLimit == 0)
-		{
-			if (g_iRocketClassFlags[iIndex] & RocketFlag_IsTRLimited)
-			{
-				g_iRocketClassFlags[iIndex] &= ~RocketFlag_IsTRLimited;
-			}
-		}
-		else if (fRocketTurnRateLimit == -1)
-		{
-			g_fRocketClassTurnRateLimit[iIndex] = g_fSavedParameters[iIndex][5];
-			
-			if ((g_iSavedRocketClassFlags[iIndex] & RocketFlag_IsTRLimited) && !(g_iRocketClassFlags[iIndex] & RocketFlag_IsTRLimited))
-			{
-				g_iRocketClassFlags[iIndex] |= RocketFlag_IsTRLimited;
-			}
-			else if (!(g_iSavedRocketClassFlags[iIndex] & RocketFlag_IsTRLimited) && (g_iRocketClassFlags[iIndex] & RocketFlag_IsTRLimited))
-			{
-				g_iRocketClassFlags[iIndex] &= ~RocketFlag_IsTRLimited;
-			}
-		}
-		else
-		{
-			if (!(g_iRocketClassFlags[iIndex] & RocketFlag_IsTRLimited))
-			{
-				g_iRocketClassFlags[iIndex] |= RocketFlag_IsTRLimited;
-			}
-			
-			g_fRocketClassTurnRateLimit[iIndex]  = fRocketTurnRateLimit;
-		}
-		
-		g_fRocketClassTurnRate[iIndex]          = fRocketTurnRate == -1 ? g_fSavedParameters[iIndex][3] : fRocketTurnRate;
-		g_fRocketClassTurnRateIncrement[iIndex] = fRocketTurnRateIncrement == -1 ? g_fSavedParameters[iIndex][4] : fRocketTurnRateIncrement;
-		
-		DestroyRockets();
-	}
-	else
-	{
-		CReplyToCommand(iClient, "%t", g_bEnabled ? "Command_DBRocketTurnRate_Usage" : "Command_Disabled");
-	}
-	
-	return Plugin_Handled;
-}
-
-public Action CmdChangeElevation(int iClient, int iArgs)
-{
-	if (iArgs == 3 && g_bEnabled)
-	{
-		char strBuffer[8]; int iIndex; float fRocketElevationRate, fRocketElevationLimit;
-		GetCmdArg(1, strBuffer, sizeof(strBuffer)); iIndex                = StringToInt(strBuffer);
-		GetCmdArg(2, strBuffer, sizeof(strBuffer)); fRocketElevationRate  = StringToFloat(strBuffer);
-		GetCmdArg(3, strBuffer, sizeof(strBuffer)); fRocketElevationLimit = StringToFloat(strBuffer);
-		
-		if ((iIndex >= g_iRocketClassCount) || (iIndex < 0))
-		{
-			return Plugin_Handled;
-		}
-		
-		if (fRocketElevationLimit == 0)
-		{
-			if (g_iRocketClassFlags[iIndex] & RocketFlag_ElevateOnDeflect)
-			{
-				g_iRocketClassFlags[iIndex] &= ~RocketFlag_ElevateOnDeflect;
-				g_iRocketFlags[iIndex]      &= ~RocketFlag_Elevating;
-			}
-		}
-		else if (fRocketElevationLimit == -1)
-		{
-			g_fRocketClassElevationLimit[iIndex] = g_fSavedParameters[iIndex][7];
-			
-			if ((g_iSavedRocketClassFlags[iIndex] & RocketFlag_ElevateOnDeflect) && !(g_iRocketClassFlags[iIndex] & RocketFlag_ElevateOnDeflect))
-			{
-				g_iRocketClassFlags[iIndex] |= RocketFlag_ElevateOnDeflect;
-			}
-			else if (!(g_iSavedRocketClassFlags[iIndex] & RocketFlag_ElevateOnDeflect) && (g_iRocketClassFlags[iIndex] & RocketFlag_ElevateOnDeflect))
-			{
-				g_iRocketClassFlags[iIndex] &= ~RocketFlag_ElevateOnDeflect;
-				g_iRocketClassFlags[iIndex] &= ~RocketFlag_Elevating;
-			}
-		}
-		else
-		{
-			if (!(g_iRocketClassFlags[iIndex] & RocketFlag_ElevateOnDeflect))
-			{
-				g_iRocketClassFlags[iIndex] |= RocketFlag_ElevateOnDeflect;
-			}
-			
-			g_fRocketClassElevationLimit[iIndex] = fRocketElevationLimit;
-		}
-		
-		g_fRocketClassElevationRate[iIndex] = fRocketElevationRate == -1 ? g_fSavedParameters[iIndex][6] : fRocketElevationRate;
-		
-		DestroyRockets();
-	}
-	else
-	{
-		CReplyToCommand(iClient, "%t", g_bEnabled ? "Command_DBRocketElevation_Usage" : "Command_Disabled");
-	}
-	
-	return Plugin_Handled;
-}
-
-public Action CmdChangeSpawners(int iClient, int iArgs)
-{
-	if (iArgs == 3 && g_bEnabled)
-	{
-		char strBuffer[8]; int iIndex, iMaxRockets, iChances;
-		GetCmdArg(1, strBuffer, sizeof(strBuffer)); iMaxRockets = StringToInt(strBuffer);
-		GetCmdArg(2, strBuffer, sizeof(strBuffer)); iIndex      = StringToInt(strBuffer);
-		GetCmdArg(3, strBuffer, sizeof(strBuffer)); iChances    = StringToInt(strBuffer);
-		
-		int iSpawnerClassBlu = g_iSpawnPointsBluClass[g_iCurrentBluSpawn];
-		g_iSpawnersMaxRockets[iSpawnerClassBlu] = iMaxRockets;
-		
-		int iSpawnerClassRed = g_iSpawnPointsRedClass[g_iCurrentRedSpawn];
-		g_iSpawnersMaxRockets[iSpawnerClassRed] = iMaxRockets;
-		
-		int iTableSizeBlu = g_hSpawnersChancesTable[iSpawnerClassBlu].Length;
-		int iTableSizeRed = g_hSpawnersChancesTable[iSpawnerClassRed].Length;
-		
-		if ((iIndex >= iTableSizeBlu) || (iIndex >= iTableSizeRed) || (iIndex < 0))
-		{
-			return Plugin_Handled;
-		}
-		
-		if (iChances == -1)
-		{
-			int iDefaultChancesBlu = g_hSavedChancesTable[iSpawnerClassBlu].Get(iIndex);
-			int iDefaultChancesRed = g_hSavedChancesTable[iSpawnerClassRed].Get(iIndex);
-			
-			g_hSpawnersChancesTable[iSpawnerClassBlu].Set(iIndex, iDefaultChancesBlu);
-			g_hSpawnersChancesTable[iSpawnerClassRed].Set(iIndex, iDefaultChancesRed);
-		}
-		else
-		{
-			g_hSpawnersChancesTable[iSpawnerClassBlu].Set(iIndex, iChances);
-			g_hSpawnersChancesTable[iSpawnerClassRed].Set(iIndex, iChances);
-		}
-	}
-	else
-	{
-		CReplyToCommand(iClient, "%t", g_bEnabled ? "Command_DBSpawners_Usage" : "Command_Disabled");
-	}
-	
-	return Plugin_Handled;
-}
-
-public Action CmdRefresh(int iClient, int iArgs)
-{
-	if (!iArgs && g_bEnabled)
-	{
-		// Clean up everything
-		DestroyRocketClasses();
-		DestroySpawners();
-		// Then reinitialize
-		char strMapName[64]; GetCurrentMap(strMapName, sizeof(strMapName));
-		char strMapFile[PLATFORM_MAX_PATH]; FormatEx(strMapFile, sizeof(strMapFile), "%s.cfg", strMapName);
-		ParseConfigurations();
-		ParseConfigurations(strMapFile);
-		PopulateSpawnPoints();
-		CPrintToChatAll("%t", "Command_DBRefresh_Done", iClient);
-	}
-	else
-	{
-		CReplyToCommand(iClient, "%t", g_bEnabled ? "Command_DBRefresh_Usage" : "Command_Disabled");
-	}
-	
-	return Plugin_Handled;
-}
-
-public Action CmdDestroyRockets(int iClient, int iArgs)
-{
-	if (!iArgs && g_bEnabled)
-	{
-		DestroyRockets();
-	}
-	else
-	{
-		CReplyToCommand(iClient, "%t", g_bEnabled ? "Command_DBRocketDestroy_Usage" : "Command_Disabled");
-	}
-	
-	return Plugin_Handled;
-}
-
-public Action CmdOtherParams(int iClient, int iArgs)
-{
-	if (iArgs == 6 && g_bEnabled)
-	{
-		char strBuffer[8]; int iIndex, bIsNeutral, bKeepDirection, bTeamlessHits, bResetBounces, iMaxBounces;
-		GetCmdArg(1, strBuffer, sizeof(strBuffer)); iIndex         = StringToInt(strBuffer);
-		GetCmdArg(2, strBuffer, sizeof(strBuffer)); bIsNeutral     = StringToInt(strBuffer);
-		GetCmdArg(3, strBuffer, sizeof(strBuffer)); bKeepDirection = StringToInt(strBuffer);
-		GetCmdArg(4, strBuffer, sizeof(strBuffer)); bTeamlessHits  = StringToInt(strBuffer);
-		GetCmdArg(5, strBuffer, sizeof(strBuffer)); bResetBounces  = StringToInt(strBuffer);
-		GetCmdArg(6, strBuffer, sizeof(strBuffer)); iMaxBounces    = StringToInt(strBuffer);
-		
-		if ((iIndex >= g_iRocketClassCount) || (iIndex < 0))
-		{
-			return Plugin_Handled;
-		}
-		
-		switch (bIsNeutral)
-		{
-			case -1:
-			{
-				if ((g_iSavedRocketClassFlags[iIndex] & RocketFlag_IsNeutral) && !(g_iRocketClassFlags[iIndex] & RocketFlag_IsNeutral))
-				{
-					g_iRocketClassFlags[iIndex] |= RocketFlag_IsNeutral;
-				}
-				else if (!(g_iSavedRocketClassFlags[iIndex] & RocketFlag_IsNeutral) && (g_iRocketClassFlags[iIndex] & RocketFlag_IsNeutral))
-				{
-					g_iRocketClassFlags[iIndex] &= ~RocketFlag_IsNeutral;
-				}
-			}
-			case 0:
-			{
-				if (g_iRocketClassFlags[iIndex] & RocketFlag_IsNeutral)
-				{
-					g_iRocketClassFlags[iIndex] &= ~RocketFlag_IsNeutral;
-				}
-			}
-			case 1:
-			{
-				if (!(g_iRocketClassFlags[iIndex] & RocketFlag_IsNeutral))
-				{
-					g_iRocketClassFlags[iIndex] |= RocketFlag_IsNeutral;
-				}
-			}
-		}
-		
-		switch (bKeepDirection)
-		{
-			case -1:
-			{
-				if ((g_iSavedRocketClassFlags[iIndex] & RocketFlag_KeepDirection) && !(g_iRocketClassFlags[iIndex] & RocketFlag_KeepDirection))
-				{
-					g_iRocketClassFlags[iIndex] |= RocketFlag_KeepDirection;
-				}
-				else if (!(g_iSavedRocketClassFlags[iIndex] & RocketFlag_KeepDirection) && (g_iRocketClassFlags[iIndex] & RocketFlag_KeepDirection))
-				{
-					g_iRocketClassFlags[iIndex] &= ~RocketFlag_KeepDirection;
-				}
-			}
-			case 0:
-			{
-				if (g_iRocketClassFlags[iIndex] & RocketFlag_KeepDirection)
-				{
-					g_iRocketClassFlags[iIndex] &= ~RocketFlag_KeepDirection;
-				}
-			}
-			case 1:
-			{
-				if (!(g_iRocketClassFlags[iIndex] & RocketFlag_KeepDirection))
-				{
-					g_iRocketClassFlags[iIndex] |= RocketFlag_KeepDirection;
-				}
-			}
-		}
-		
-		switch (bTeamlessHits)
-		{
-			case -1:
-			{
-				if ((g_iSavedRocketClassFlags[iIndex] & RocketFlag_TeamlessHits) && !(g_iRocketClassFlags[iIndex] & RocketFlag_TeamlessHits))
-				{
-					g_iRocketClassFlags[iIndex] |= RocketFlag_TeamlessHits;
-				}
-				else if (!(g_iSavedRocketClassFlags[iIndex] & RocketFlag_TeamlessHits) && (g_iRocketClassFlags[iIndex] & RocketFlag_TeamlessHits))
-				{
-					g_iRocketClassFlags[iIndex] &= ~RocketFlag_TeamlessHits;
-				}
-			}
-			case 0:
-			{
-				if (g_iRocketClassFlags[iIndex] & RocketFlag_TeamlessHits)
-				{
-					g_iRocketClassFlags[iIndex] &= ~RocketFlag_TeamlessHits;
-				}
-			}
-			case 1:
-			{
-				if (!(g_iRocketClassFlags[iIndex] & RocketFlag_TeamlessHits))
-				{
-					g_iRocketClassFlags[iIndex] |= RocketFlag_TeamlessHits;
-				}
-			}
-		}
-		
-		switch (bResetBounces)
-		{
-			case -1:
-			{
-				if ((g_iSavedRocketClassFlags[iIndex] & RocketFlag_ResetBounces) && !(g_iRocketClassFlags[iIndex] & RocketFlag_ResetBounces))
-				{
-					g_iRocketClassFlags[iIndex] |= RocketFlag_ResetBounces;
-				}
-				else if (!(g_iSavedRocketClassFlags[iIndex] & RocketFlag_ResetBounces) && (g_iRocketClassFlags[iIndex] & RocketFlag_ResetBounces))
-				{
-					g_iRocketClassFlags[iIndex] &= ~RocketFlag_ResetBounces;
-				}
-			}
-			case 0:
-			{
-				if (g_iRocketClassFlags[iIndex] & RocketFlag_ResetBounces)
-				{
-					g_iRocketClassFlags[iIndex] &= ~RocketFlag_ResetBounces;
-				}
-			}
-			case 1:
-			{
-				if (!(g_iRocketClassFlags[iIndex] & RocketFlag_ResetBounces))
-				{
-					g_iRocketClassFlags[iIndex] |= RocketFlag_ResetBounces;
-				}
-			}
-		}
-		
-		g_iRocketClassMaxBounces[iIndex] = iMaxBounces == -1 ? g_iRocketClassSavedMaxBounces[iIndex] : iMaxBounces;
-		
-		DestroyRockets();
-	}
-	else
-	{
-		CReplyToCommand(iClient, "%t", g_bEnabled ? "Command_DBRocketOtherParams_Usage" : "Command_Disabled");
-	}
-	
-	return Plugin_Handled;
-}
-
-public Action CmdDragParams(int iClient, int iArgs)
-{
-	if (iArgs == 4 && g_bEnabled)
-	{
-		char strBuffer[8]; int iIndex; float fRocketDragTimeMin, fRocketDragTimeMax; int bRocketNoBounceDrags;
-		GetCmdArg(1, strBuffer, sizeof(strBuffer)); iIndex               = StringToInt(strBuffer);
-		GetCmdArg(2, strBuffer, sizeof(strBuffer)); fRocketDragTimeMin   = StringToFloat(strBuffer);
-		GetCmdArg(3, strBuffer, sizeof(strBuffer)); fRocketDragTimeMax   = StringToFloat(strBuffer);
-		GetCmdArg(4, strBuffer, sizeof(strBuffer)); bRocketNoBounceDrags = StringToInt(strBuffer);
-		
-		if ((iIndex >= g_iRocketClassCount) || (iIndex < 0))
-		{
-			return Plugin_Handled;
-		}
-		
-		switch (bRocketNoBounceDrags)
-		{
-			case -1:
-			{
-				if ((g_iSavedRocketClassFlags[iIndex] & RocketFlag_NoBounceDrags) && !(g_iRocketClassFlags[iIndex] & RocketFlag_NoBounceDrags))
-				{
-					g_iRocketClassFlags[iIndex] |= RocketFlag_NoBounceDrags;
-				}
-				else if (!(g_iSavedRocketClassFlags[iIndex] & RocketFlag_NoBounceDrags) && (g_iRocketClassFlags[iIndex] & RocketFlag_NoBounceDrags))
-				{
-					g_iRocketClassFlags[iIndex] &= ~RocketFlag_NoBounceDrags;
-				}
-			}
-			case 0:
-			{
-				if (g_iRocketClassFlags[iIndex] & RocketFlag_NoBounceDrags)
-				{
-					g_iRocketClassFlags[iIndex] &= ~RocketFlag_NoBounceDrags;
-				}
-			}
-			case 1:
-			{
-				if (!(g_iRocketClassFlags[iIndex] & RocketFlag_NoBounceDrags))
-				{
-					g_iRocketClassFlags[iIndex] |= RocketFlag_NoBounceDrags;
-				}
-			}
-		}
-		
-		g_fRocketClassDragTimeMin[iIndex] = fRocketDragTimeMin == -1 ? g_fSavedParameters[iIndex][8] : fRocketDragTimeMin;
-		g_fRocketClassDragTimeMax[iIndex] = fRocketDragTimeMax == -1 ? g_fSavedParameters[iIndex][9] : fRocketDragTimeMax;
-		
-		DestroyRockets();
-	}
-	else
-	{
-		CReplyToCommand(iClient, "%t", g_bEnabled ? "Command_DBRocketDragParams_Usage" : "Command_Disabled");
-	}
-	
-	return Plugin_Handled;
 }
 
 public Action CmdHideTrails(int iClient, int iArgs)
@@ -2819,7 +2283,7 @@ void ExecuteCommands(DataPack hDataPack, int iClass, int iRocket, int iOwner, in
 ** Parses a Dodgeball configuration file. It doesn't clear any of the previous
 ** data, so multiple files can be parsed.
 ** -------------------------------------------------------------------------- */
-bool ParseConfigurations(char[] strConfigFile = "general.cfg")
+void ParseConfigurations(char[] strConfigFile = "general.cfg")
 {
     // Parse configuration
     char strPath[PLATFORM_MAX_PATH];
@@ -2976,8 +2440,6 @@ void ParseClasses(KeyValues kvConfig)
         // Behaviour modifiers
         if (kvConfig.GetNum("elevate on deflect", 1) == 1) iFlags |= RocketFlag_ElevateOnDeflect;
         if (kvConfig.GetNum("neutral rocket", 0) == 1)     iFlags |= RocketFlag_IsNeutral;
-        if (kvConfig.GetNum("limit turn rate", 0) == 1)    iFlags |= RocketFlag_IsTRLimited;
-        if (kvConfig.GetNum("limit speed", 0) == 1)        iFlags |= RocketFlag_IsSpeedLimited;
         if (kvConfig.GetNum("keep direction", 0) == 1)     iFlags |= RocketFlag_KeepDirection;
         if (kvConfig.GetNum("teamless deflects", 0) == 1)  iFlags |= RocketFlag_TeamlessHits;
         if (kvConfig.GetNum("reset bounces", 0) == 1)      iFlags |= RocketFlag_ResetBounces;
@@ -2990,28 +2452,27 @@ void ParseClasses(KeyValues kvConfig)
         g_fRocketClassDamageIncrement[iIndex]   = kvConfig.GetFloat("damage increment");
         g_fRocketClassCritChance[iIndex]        = kvConfig.GetFloat("critical chance");
         g_fRocketClassSpeed[iIndex]             = kvConfig.GetFloat("speed");
-        g_fSavedParameters[iIndex][0]           = g_fRocketClassSpeed[iIndex];
         g_fRocketClassSpeedIncrement[iIndex]    = kvConfig.GetFloat("speed increment");
-        g_fSavedParameters[iIndex][1]           = g_fRocketClassSpeedIncrement[iIndex];
-        g_fRocketClassSpeedLimit[iIndex]        = kvConfig.GetFloat("speed limit");
-        g_fSavedParameters[iIndex][2]           = g_fRocketClassSpeedLimit[iIndex];
+        
+        if ((g_fRocketClassSpeedLimit[iIndex] = kvConfig.GetFloat("speed limit")) != 0.0)
+        {
+            iFlags |= RocketFlag_IsSpeedLimited;
+        }
+        
         g_fRocketClassTurnRate[iIndex]          = kvConfig.GetFloat("turn rate");
-        g_fSavedParameters[iIndex][3]           = g_fRocketClassTurnRate[iIndex];
         g_fRocketClassTurnRateIncrement[iIndex] = kvConfig.GetFloat("turn rate increment");
-        g_fSavedParameters[iIndex][4]           = g_fRocketClassTurnRateIncrement[iIndex];
-        g_fRocketClassTurnRateLimit[iIndex]     = kvConfig.GetFloat("turn rate limit");
-        g_fSavedParameters[iIndex][5]           = g_fRocketClassTurnRateLimit[iIndex];
+        
+        if ((g_fRocketClassTurnRateLimit[iIndex] = kvConfig.GetFloat("turn rate limit")) != 0.0)
+        {
+            iFlags |= RocketFlag_IsTRLimited;
+        }
+        
         g_fRocketClassElevationRate[iIndex]     = kvConfig.GetFloat("elevation rate");
-        g_fSavedParameters[iIndex][6]           = g_fRocketClassElevationRate[iIndex];
         g_fRocketClassElevationLimit[iIndex]    = kvConfig.GetFloat("elevation limit");
-        g_fSavedParameters[iIndex][7]           = g_fRocketClassElevationLimit[iIndex];
         g_fRocketClassControlDelay[iIndex]      = kvConfig.GetFloat("control delay");
         g_fRocketClassDragTimeMin[iIndex]       = kvConfig.GetFloat("drag time min");
-        g_fSavedParameters[iIndex][8]           = g_fRocketClassDragTimeMin[iIndex];
         g_fRocketClassDragTimeMax[iIndex]       = kvConfig.GetFloat("drag time max");
-        g_fSavedParameters[iIndex][9]           = g_fRocketClassDragTimeMax[iIndex];
         g_iRocketClassMaxBounces[iIndex]        = kvConfig.GetNum("max bounces");
-        g_iRocketClassSavedMaxBounces[iIndex]   = g_iRocketClassMaxBounces[iIndex];
         g_fRocketClassBounceScale[iIndex]       = kvConfig.GetFloat("bounce scale", 1.0);
         g_fRocketClassPlayerModifier[iIndex]    = kvConfig.GetFloat("no. players modifier");
         g_fRocketClassRocketsModifier[iIndex]   = kvConfig.GetFloat("no. rockets modifier");
@@ -3032,7 +2493,6 @@ void ParseClasses(KeyValues kvConfig)
         
         // Done
         g_iRocketClassFlags[iIndex] = iFlags;
-        g_iSavedRocketClassFlags[iIndex] = iFlags;
         g_iRocketClassCount++;
     }
     while (kvConfig.GotoNextKey());
@@ -3059,12 +2519,10 @@ void ParseSpawners(KeyValues kvConfig)
         
         // Chances table
         g_hSpawnersChancesTable[iIndex] = new ArrayList();
-        g_hSavedChancesTable[iIndex] = new ArrayList();
         for (int iClassIndex = 0; iClassIndex < g_iRocketClassCount; iClassIndex++)
         {
             FormatEx(strBuffer, sizeof(strBuffer), "%s%%", g_strRocketClassName[iClassIndex]);
             g_hSpawnersChancesTable[iIndex].Push(kvConfig.GetNum(strBuffer, 0));
-            g_hSavedChancesTable[iIndex].Push(kvConfig.GetNum(strBuffer, 0));
         }
         
         // Done.
@@ -3477,11 +2935,11 @@ void CheckStolenRocket(int iClient, int iIndex)
 {
 	int iTarget = EntRefToEntIndex(g_iRocketTarget[iIndex]);
 	
-	if (iTarget != iClient && 
-        !bStealArray[iClient].stoleRocket && 
-        (GetEntitiesDistance(iTarget, iClient) > g_hCvarStealDistance.FloatValue) && 
-        (!(g_iRocketFlags[iIndex] & RocketFlag_StealTeamCheck) || (GetClientTeam(iTarget) == GetClientTeam(iClient))) && 
-        !g_bPreventingDelay[iIndex])
+	if (iTarget != iClient &&
+	    !bStealArray[iClient].stoleRocket &&
+	    (GetEntitiesDistance(iTarget, iClient) > g_hCvarStealDistance.FloatValue) &&
+	    (!(g_iRocketFlags[iIndex] & RocketFlag_StealTeamCheck) || (GetClientTeam(iTarget) == GetClientTeam(iClient))) &&
+	    !(g_iRocketState[iIndex] & RocketState_Delayed))
 	{
 		bStealArray[iClient].stoleRocket = true;
 		if (bStealArray[iClient].rocketsStolen < g_hCvarStealPreventionNumber.IntValue)
@@ -3500,7 +2958,7 @@ void CheckStolenRocket(int iClient, int iIndex)
 			MC_SkipNextClient(iClient);
 			CPrintToChatAll("%t", "DBSteal_Announce_Slay_All", iClient);
 		}
-		g_bIsRocketStolen[iIndex] = true;
+		Internal_SetRocketState(iIndex, (g_iRocketState[iIndex] | RocketState_Stolen));
 		g_iLastStealer = iClient;
 		
 		Forward_OnRocketSteal(iIndex, iClient, iTarget, bStealArray[iClient].rocketsStolen);
@@ -3647,12 +3105,12 @@ public Action OnTouch(int iEntity, int iOther)
 		
 		if (g_iRocketFlags[iIndex] & RocketFlag_NoBounceDrags)
 		{
-			g_bIsRocketDraggable[iIndex] = false;
+			Internal_SetRocketState(iIndex, (g_iRocketState[iIndex] & ~RocketState_CanDrag));
 		}
 		
-		if ((g_bPreventingDelay[iIndex]) || (g_iRocketFlags[iIndex] & RocketFlag_KeepDirection))
+		if ((g_iRocketState[iIndex] & RocketState_Delayed) || (g_iRocketFlags[iIndex] & RocketFlag_KeepDirection))
 		{
-			g_bIsRocketBouncing[iIndex] = true;
+			Internal_SetRocketState(iIndex, (g_iRocketState[iIndex] | RocketState_Bouncing));
 		}
 		else
 		{
@@ -3692,14 +3150,14 @@ void CheckRoundDelays(int iIndex)
 	if (iTarget != INVALID_ENT_REFERENCE && (GetGameTime() - fTimeToCheck) >= g_hCvarDelayPreventionTime.FloatValue)
 	{
 		g_fRocketSpeed[iIndex] += g_hCvarDelayPreventionSpeedup.FloatValue;
-		if (!g_bPreventingDelay[iIndex])
+		if (!(g_iRocketState[iIndex] & RocketState_Delayed))
 		{
 			CPrintToChatAll("%t", "DBDelay_Announce_All", iTarget);
 			EmitSoundToAll(SOUND_DEFAULT_SPEEDUP, iEntity, SNDCHAN_AUTO, SNDLEVEL_GUNFIRE);
 			
 			Forward_OnRocketDelay(iIndex, iTarget);
 		}
-		g_bPreventingDelay[iIndex] = true;
+		Internal_SetRocketState(iIndex, (g_iRocketState[iIndex] | RocketState_Delayed));
 	}
 }
 
@@ -3712,7 +3170,7 @@ stock float GetEntitiesDistance(int iEnt1, int iEnt2)
 	
 	float fOrig2[3];
 	GetEntPropVector(iEnt2, Prop_Send, "m_vecOrigin", fOrig2);
-
+	
 	return GetVectorDistance(fOrig1, fOrig2);
 }
 
@@ -3901,22 +3359,12 @@ public any Native_IsValidRocket(Handle hPlugin, int iNumParams)
 {
 	int iIndex = GetNativeCell(1);
 	
-	if (iIndex >= MAX_ROCKETS || iIndex < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket index %i is out of bounds", iIndex);
-	}
-	
 	return IsValidRocket(iIndex);
 }
 
 public any Native_FindRocketByEntity(Handle hPlugin, int iNumParams)
 {
 	int iEntity = GetNativeCell(1);
-	
-	if (!IsValidEntity(iEntity))
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Entity %i is invalid", iEntity);
-	}
 	
 	return FindRocketByEntity(iEntity);
 }
@@ -3930,22 +3378,12 @@ public any Native_GetRocketEntity(Handle hPlugin, int iNumParams)
 {
 	int iIndex = GetNativeCell(1);
 	
-	if (iIndex >= MAX_ROCKETS || iIndex < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket index %i is out of bounds", iIndex);
-	}
-	
 	return g_iRocketEntity[iIndex];
 }
 
 public any Native_GetRocketFlags(Handle hPlugin, int iNumParams)
 {
 	int iIndex = GetNativeCell(1);
-	
-	if (iIndex >= MAX_ROCKETS || iIndex < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket index %i is out of bounds", iIndex);
-	}
 	
 	return g_iRocketFlags[iIndex];
 }
@@ -3954,24 +3392,16 @@ public any Native_SetRocketFlags(Handle hPlugin, int iNumParams)
 {
 	int iIndex = GetNativeCell(1);
 	
-	if (iIndex >= MAX_ROCKETS || iIndex < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket index %i is out of bounds", iIndex);
-	}
-	
 	RocketFlags iFlags = GetNativeCell(2);
 	
 	g_iRocketFlags[iIndex] = iFlags;
+	
+	return 0;
 }
 
 public any Native_GetRocketTarget(Handle hPlugin, int iNumParams)
 {
 	int iIndex = GetNativeCell(1);
-	
-	if (iIndex >= MAX_ROCKETS || iIndex < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket index %i is out of bounds", iIndex);
-	}
 	
 	return g_iRocketTarget[iIndex];
 }
@@ -3980,24 +3410,16 @@ public any Native_SetRocketTarget(Handle hPlugin, int iNumParams)
 {
 	int iIndex = GetNativeCell(1);
 	
-	if (iIndex >= MAX_ROCKETS || iIndex < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket index %i is out of bounds", iIndex);
-	}
-	
 	int iTarget = GetNativeCell(2);
 	
 	g_iRocketTarget[iIndex] = iTarget;
+	
+	return 0;
 }
 
 public any Native_GetRocketEventDeflections(Handle hPlugin, int iNumParams)
 {
 	int iIndex = GetNativeCell(1);
-	
-	if (iIndex >= MAX_ROCKETS || iIndex < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket index %i is out of bounds", iIndex);
-	}
 	
 	return g_iRocketEventDeflections[iIndex];
 }
@@ -4006,50 +3428,16 @@ public any Native_SetRocketEventDeflections(Handle hPlugin, int iNumParams)
 {
 	int iIndex = GetNativeCell(1);
 	
-	if (iIndex >= MAX_ROCKETS || iIndex < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket index %i is out of bounds", iIndex);
-	}
-	
 	int iDeflections = GetNativeCell(2);
 	
 	g_iRocketEventDeflections[iIndex] = iDeflections;
-}
-
-public any Native_GetRocketAltDeflections(Handle hPlugin, int iNumParams)
-{
-	int iIndex = GetNativeCell(1);
 	
-	if (iIndex >= MAX_ROCKETS || iIndex < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket index %i is out of bounds", iIndex);
-	}
-	
-	return g_iRocketAltDeflections[iIndex];
-}
-
-public any Native_SetRocketAltDeflections(Handle hPlugin, int iNumParams)
-{
-	int iIndex = GetNativeCell(1);
-	
-	if (iIndex >= MAX_ROCKETS || iIndex < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket index %i is out of bounds", iIndex);
-	}
-	
-	int iDeflections = GetNativeCell(2);
-	
-	g_iRocketAltDeflections[iIndex] = iDeflections;
+	return 0;
 }
 
 public any Native_GetRocketDeflections(Handle hPlugin, int iNumParams)
 {
 	int iIndex = GetNativeCell(1);
-	
-	if (iIndex >= MAX_ROCKETS || iIndex < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket index %i is out of bounds", iIndex);
-	}
 	
 	return g_iRocketDeflections[iIndex];
 }
@@ -4058,24 +3446,16 @@ public any Native_SetRocketDeflections(Handle hPlugin, int iNumParams)
 {
 	int iIndex = GetNativeCell(1);
 	
-	if (iIndex >= MAX_ROCKETS || iIndex < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket index %i is out of bounds", iIndex);
-	}
-	
 	int iDeflections = GetNativeCell(2);
 	
 	g_iRocketDeflections[iIndex] = iDeflections;
+	
+	return 0;
 }
 
 public any Native_GetRocketClass(Handle hPlugin, int iNumParams)
 {
 	int iIndex = GetNativeCell(1);
-	
-	if (iIndex >= MAX_ROCKETS || iIndex < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket index %i is out of bounds", iIndex);
-	}
 	
 	return g_iRocketClass[iIndex];
 }
@@ -4084,19 +3464,11 @@ public any Native_SetRocketClass(Handle hPlugin, int iNumParams)
 {
 	int iIndex = GetNativeCell(1);
 	
-	if (iIndex >= MAX_ROCKETS || iIndex < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket index %i is out of bounds", iIndex);
-	}
-	
 	int iClass = GetNativeCell(2);
 	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
 	g_iRocketClass[iIndex] = iClass;
+	
+	return 0;
 }
 
 public any Native_GetRocketClassCount(Handle hPlugin, int iNumParams)
@@ -4108,11 +3480,6 @@ public any Native_GetRocketClassBehaviour(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
 	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
 	return g_iRocketClassBehaviour[iClass];
 }
 
@@ -4120,24 +3487,16 @@ public any Native_SetRocketClassBehaviour(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
 	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
 	BehaviourTypes iBehaviour = GetNativeCell(2);
 	
 	g_iRocketClassBehaviour[iClass] = iBehaviour;
+	
+	return 0;
 }
 
 public any Native_GetRocketClassFlags(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
-	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
 	
 	return g_iRocketClassFlags[iClass];
 }
@@ -4146,24 +3505,16 @@ public any Native_SetRocketClassFlags(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
 	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
 	RocketFlags iFlags = GetNativeCell(2);
 	
 	g_iRocketClassFlags[iClass] = iFlags;
+	
+	return 0;
 }
 
 public any Native_GetRocketClassDamage(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
-	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
 	
 	return g_fRocketClassDamage[iClass];
 }
@@ -4172,24 +3523,16 @@ public any Native_SetRocketClassDamage(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
 	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
 	float fDamage = GetNativeCell(2);
 	
 	g_fRocketClassDamage[iClass] = fDamage;
+	
+	return 0;
 }
 
 public any Native_GetRocketClassDamageIncrement(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
-	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
 	
 	return g_fRocketClassDamageIncrement[iClass];
 }
@@ -4198,24 +3541,16 @@ public any Native_SetRocketClassDamageIncrement(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
 	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
 	float fDamage = GetNativeCell(2);
 	
 	g_fRocketClassDamageIncrement[iClass] = fDamage;
+	
+	return 0;
 }
 
 public any Native_GetRocketClassSpeed(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
-	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
 	
 	return g_fRocketClassSpeed[iClass];
 }
@@ -4224,24 +3559,16 @@ public any Native_SetRocketClassSpeed(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
 	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
 	float fSpeed = GetNativeCell(2);
 	
 	g_fRocketClassSpeed[iClass] = fSpeed;
+	
+	return 0;
 }
 
 public any Native_GetRocketClassSpeedIncrement(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
-	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
 	
 	return g_fRocketClassSpeedIncrement[iClass];
 }
@@ -4250,24 +3577,16 @@ public any Native_SetRocketClassSpeedIncrement(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
 	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
 	float fSpeed = GetNativeCell(2);
 	
 	g_fRocketClassSpeedIncrement[iClass] = fSpeed;
+	
+	return 0;
 }
 
 public any Native_GetRocketClassSpeedLimit(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
-	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
 	
 	return g_fRocketClassSpeedLimit[iClass];
 }
@@ -4276,24 +3595,16 @@ public any Native_SetRocketClassSpeedLimit(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
 	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
 	float fSpeed = GetNativeCell(2);
 	
 	g_fRocketClassSpeedLimit[iClass] = fSpeed;
+	
+	return 0;
 }
 
 public any Native_GetRocketClassTurnRate(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
-	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
 	
 	return g_fRocketClassTurnRate[iClass];
 }
@@ -4302,24 +3613,16 @@ public any Native_SetRocketClassTurnRate(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
 	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
 	float fTurnRate = GetNativeCell(2);
 	
 	g_fRocketClassTurnRate[iClass] = fTurnRate;
+	
+	return 0;
 }
 
 public any Native_GetRocketClassTurnRateIncrement(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
-	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
 	
 	return g_fRocketClassTurnRateIncrement[iClass];
 }
@@ -4328,24 +3631,16 @@ public any Native_SetRocketClassTurnRateIncrement(Handle hPlugin, int iNumParams
 {
 	int iClass = GetNativeCell(1);
 	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
 	float fTurnRate = GetNativeCell(2);
 	
 	g_fRocketClassTurnRateIncrement[iClass] = fTurnRate;
+	
+	return 0;
 }
 
 public any Native_GetRocketClassTurnRateLimit(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
-	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
 	
 	return g_fRocketClassTurnRateLimit[iClass];
 }
@@ -4354,24 +3649,16 @@ public any Native_SetRocketClassTurnRateLimit(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
 	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
 	float fTurnRate = GetNativeCell(2);
 	
 	g_fRocketClassTurnRateLimit[iClass] = fTurnRate;
+	
+	return 0;
 }
 
 public any Native_GetRocketClassElevationRate(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
-	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
 	
 	return g_fRocketClassElevationRate[iClass];
 }
@@ -4380,24 +3667,16 @@ public any Native_SetRocketClassElevationRate(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
 	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
 	float fElevation = GetNativeCell(2);
 	
 	g_fRocketClassElevationRate[iClass] = fElevation;
+	
+	return 0;
 }
 
 public any Native_GetRocketClassElevationLimit(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
-	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
 	
 	return g_fRocketClassElevationLimit[iClass];
 }
@@ -4406,24 +3685,16 @@ public any Native_SetRocketClassElevationLimit(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
 	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
 	float fElevation = GetNativeCell(2);
 	
 	g_fRocketClassElevationLimit[iClass] = fElevation;
+	
+	return 0;
 }
 
 public any Native_GetRocketClassRocketsModifier(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
-	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
 	
 	return g_fRocketClassRocketsModifier[iClass];
 }
@@ -4432,24 +3703,16 @@ public any Native_SetRocketClassRocketsModifier(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
 	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
 	float fModifier = GetNativeCell(2);
 	
 	g_fRocketClassRocketsModifier[iClass] = fModifier;
+	
+	return 0;
 }
 
 public any Native_GetRocketClassPlayerModifier(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
-	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
 	
 	return g_fRocketClassPlayerModifier[iClass];
 }
@@ -4458,24 +3721,16 @@ public any Native_SetRocketClassPlayerModifier(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
 	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
 	float fModifier = GetNativeCell(2);
 	
 	g_fRocketClassPlayerModifier[iClass] = fModifier;
+	
+	return 0;
 }
 
 public any Native_GetRocketClassControlDelay(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
-	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
 	
 	return g_fRocketClassControlDelay[iClass];
 }
@@ -4484,24 +3739,16 @@ public any Native_SetRocketClassControlDelay(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
 	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
 	float fDelay = GetNativeCell(2);
 	
 	g_fRocketClassControlDelay[iClass] = fDelay;
+	
+	return 0;
 }
 
 public any Native_GetRocketClassDragTimeMin(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
-	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
 	
 	return g_fRocketClassDragTimeMin[iClass];
 }
@@ -4510,24 +3757,16 @@ public any Native_SetRocketClassDragTimeMin(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
 	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
 	float fMin = GetNativeCell(2);
 	
 	g_fRocketClassDragTimeMin[iClass] = fMin;
+	
+	return 0;
 }
 
 public any Native_GetRocketClassDragTimeMax(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
-	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
 	
 	return g_fRocketClassDragTimeMax[iClass];
 }
@@ -4536,14 +3775,11 @@ public any Native_SetRocketClassDragTimeMax(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
 	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
 	float fMax = GetNativeCell(2);
 	
 	g_fRocketClassDragTimeMax[iClass] = fMax;
+	
+	return 0;
 }
 
 public any Native_SetRocketClassCount(Handle hPlugin, int iNumParams)
@@ -4551,96 +3787,24 @@ public any Native_SetRocketClassCount(Handle hPlugin, int iNumParams)
 	int iCount = GetNativeCell(1);
 	
 	g_iRocketClassCount = iCount;
+	
+	return 0;
 }
 
 public any Native_SetRocketEntity(Handle hPlugin, int iNumParams)
 {
 	int iIndex = GetNativeCell(1);
 	
-	if (iIndex >= MAX_ROCKETS || iIndex < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket index %i is out of bounds", iIndex);
-	}
-	
 	int iEntity = GetNativeCell(2);
 	
 	g_iRocketEntity[iIndex] = iEntity;
-}
-
-public any Native_GetSavedParameters(Handle hPlugin, int iNumParams)
-{
-	int iClass = GetNativeCell(1);
 	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
-	int iParam = GetNativeCell(2);
-	
-	if (iParam >= 10 || iParam < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Saved parameter index %i is out of bounds", iClass);
-	}
-	
-	return g_fSavedParameters[iClass][iParam];
-}
-
-public any Native_SetSavedParameters(Handle hPlugin, int iNumParams)
-{
-	int iClass = GetNativeCell(1);
-	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
-	int iParam = GetNativeCell(2);
-	
-	if (iParam >= 10 || iParam < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Saved parameter index %i is out of bounds", iClass);
-	}
-	
-	float fValue = GetNativeCell(3);
-	
-	g_fSavedParameters[iClass][iParam] = fValue;
-}
-
-public any Native_GetSavedRocketClassFlags(Handle hPlugin, int iNumParams)
-{
-	int iClass = GetNativeCell(1);
-	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
-	return g_iSavedRocketClassFlags[iClass];
-}
-
-public any Native_SetSavedRocketClassFlags(Handle hPlugin, int iNumParams)
-{
-	int iClass = GetNativeCell(1);
-	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
-	RocketFlags iFlags = GetNativeCell(2);
-	
-	g_iSavedRocketClassFlags[iClass] = iFlags;
+	return 0;
 }
 
 public any Native_GetRocketClassMaxBounces(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
-	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
 	
 	return g_iRocketClassMaxBounces[iClass];
 }
@@ -4649,80 +3813,40 @@ public any Native_SetRocketClassMaxBounces(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
 	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
 	int iBounces = GetNativeCell(2);
 	
 	g_iRocketClassMaxBounces[iClass] = iBounces;
-}
-
-public any Native_GetRocketClassSavedMaxBounces(Handle hPlugin, int iNumParams)
-{
-	int iClass = GetNativeCell(1);
 	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
-	return g_iRocketClassSavedMaxBounces[iClass];
-}
-
-public any Native_SetRocketClassSavedMaxBounces(Handle hPlugin, int iNumParams)
-{
-	int iClass = GetNativeCell(1);
-	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
-	int iBounces = GetNativeCell(2);
-	
-	g_iRocketClassSavedMaxBounces[iClass] = iBounces;
+	return 0;
 }
 
 public any Native_GetSpawnersName(Handle hPlugin, int iNumParams)
 {
 	int iSpawnerClass = GetNativeCell(1);
 	
-	if (iSpawnerClass >= MAX_SPAWNER_CLASSES || iSpawnerClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Spawner class index %i is out of bounds", iSpawnerClass);
-	}
-	
 	int iMaxLen = GetNativeCell(3);
 	
 	SetNativeString(2, g_strSpawnersName[iSpawnerClass], iMaxLen);
+	
+	return 0;
 }
 
 public any Native_SetSpawnersName(Handle hPlugin, int iNumParams)
 {
 	int iSpawnerClass = GetNativeCell(1);
 	
-	if (iSpawnerClass >= MAX_SPAWNER_CLASSES || iSpawnerClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Spawner class index %i is out of bounds", iSpawnerClass);
-	}
-	
 	int iMaxLen; GetNativeStringLength(2, iMaxLen);
 	
 	char[] strBuffer = new char[iMaxLen + 1]; GetNativeString(2, strBuffer, iMaxLen + 1);
 	
 	strcopy(g_strSpawnersName[iSpawnerClass], sizeof(g_strSpawnersName[]), strBuffer);
+	
+	return 0;
 }
 
 public any Native_GetSpawnersMaxRockets(Handle hPlugin, int iNumParams)
 {
 	int iSpawnerClass = GetNativeCell(1);
-	
-	if (iSpawnerClass >= MAX_SPAWNER_CLASSES || iSpawnerClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Spawner class index %i is out of bounds", iSpawnerClass);
-	}
 	
 	return g_iSpawnersMaxRockets[iSpawnerClass];
 }
@@ -4731,24 +3855,16 @@ public any Native_SetSpawnersMaxRockets(Handle hPlugin, int iNumParams)
 {
 	int iSpawnerClass = GetNativeCell(1);
 	
-	if (iSpawnerClass >= MAX_SPAWNER_CLASSES || iSpawnerClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Spawner class index %i is out of bounds", iSpawnerClass);
-	}
-	
 	int iMaxRockets = GetNativeCell(2);
 	
 	g_iSpawnersMaxRockets[iSpawnerClass] = iMaxRockets;
+	
+	return 0;
 }
 
 public any Native_GetSpawnersInterval(Handle hPlugin, int iNumParams)
 {
 	int iSpawnerClass = GetNativeCell(1);
-	
-	if (iSpawnerClass >= MAX_SPAWNER_CLASSES || iSpawnerClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Spawner class index %i is out of bounds", iSpawnerClass);
-	}
 	
 	return g_fSpawnersInterval[iSpawnerClass];
 }
@@ -4757,24 +3873,16 @@ public any Native_SetSpawnersInterval(Handle hPlugin, int iNumParams)
 {
 	int iSpawnerClass = GetNativeCell(1);
 	
-	if (iSpawnerClass >= MAX_SPAWNER_CLASSES || iSpawnerClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Spawner class index %i is out of bounds", iSpawnerClass);
-	}
-	
 	float fInterval = GetNativeCell(2);
 	
 	g_fSpawnersInterval[iSpawnerClass] = fInterval;
+	
+	return 0;
 }
 
 public any Native_GetSpawnersChancesTable(Handle hPlugin, int iNumParams)
 {
 	int iSpawnerClass = GetNativeCell(1);
-	
-	if (iSpawnerClass >= MAX_SPAWNER_CLASSES || iSpawnerClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Spawner class index %i is out of bounds", iSpawnerClass);
-	}
 	
 	Handle hClone = CloneHandle(g_hSpawnersChancesTable[iSpawnerClass], hPlugin);
 	
@@ -4785,11 +3893,6 @@ public any Native_SetSpawnersChancesTable(Handle hPlugin, int iNumParams)
 {
 	int iSpawnerClass = GetNativeCell(1);
 	
-	if (iSpawnerClass >= MAX_SPAWNER_CLASSES || iSpawnerClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Spawner class index %i is out of bounds", iSpawnerClass);
-	}
-	
 	ArrayList hTable = GetNativeCell(2);
 	
 	hTable = view_as<ArrayList>(CloneHandle(hTable));
@@ -4797,38 +3900,8 @@ public any Native_SetSpawnersChancesTable(Handle hPlugin, int iNumParams)
 	delete g_hSpawnersChancesTable[iSpawnerClass];
 	
 	g_hSpawnersChancesTable[iSpawnerClass] = hTable;
-}
-
-public any Native_GetSavedChancesTable(Handle hPlugin, int iNumParams)
-{
-	int iSpawnerClass = GetNativeCell(1);
 	
-	if (iSpawnerClass >= MAX_SPAWNER_CLASSES || iSpawnerClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Spawner class index %i is out of bounds", iSpawnerClass);
-	}
-	
-	Handle hClone = CloneHandle(g_hSavedChancesTable[iSpawnerClass], hPlugin);
-	
-	return hClone;
-}
-
-public any Native_SetSavedChancesTable(Handle hPlugin, int iNumParams)
-{
-	int iSpawnerClass = GetNativeCell(1);
-	
-	if (iSpawnerClass >= MAX_SPAWNER_CLASSES || iSpawnerClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Spawner class index %i is out of bounds", iSpawnerClass);
-	}
-	
-	ArrayList hTable = GetNativeCell(2);
-	
-	hTable = view_as<ArrayList>(CloneHandle(hTable));
-	
-	delete g_hSavedChancesTable[iSpawnerClass];
-	
-	g_hSavedChancesTable[iSpawnerClass] = hTable;
+	return 0;
 }
 
 public any Native_GetSpawnersCount(Handle hPlugin, int iNumParams)
@@ -4841,6 +3914,8 @@ public any Native_SetSpawnersCount(Handle hPlugin, int iNumParams)
 	int iCount = GetNativeCell(1);
 	
 	g_iSpawnersCount = iCount;
+	
+	return 0;
 }
 
 public any Native_GetCurrentRedSpawn(Handle hPlugin, int iNumParams)
@@ -4853,6 +3928,8 @@ public any Native_SetCurrentRedSpawn(Handle hPlugin, int iNumParams)
 	int iRedSpawn = GetNativeCell(1);
 	
 	g_iCurrentRedSpawn = iRedSpawn;
+	
+	return 0;
 }
 
 public any Native_GetSpawnPointsRedCount(Handle hPlugin, int iNumParams)
@@ -4865,16 +3942,13 @@ public any Native_SetSpawnPointsRedCount(Handle hPlugin, int iNumParams)
 	int iCount = GetNativeCell(1);
 	
 	g_iSpawnPointsRedCount = iCount;
+	
+	return 0;
 }
 
 public any Native_GetSpawnPointsRedClass(Handle hPlugin, int iNumParams)
 {
 	int iSpawner = GetNativeCell(1);
-	
-	if (iSpawner >= MAX_SPAWN_POINTS || iSpawner < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Spawner index %i is out of bounds", iSpawner);
-	}
 	
 	return g_iSpawnPointsRedClass[iSpawner];
 }
@@ -4883,29 +3957,16 @@ public any Native_SetSpawnPointsRedClass(Handle hPlugin, int iNumParams)
 {
 	int iSpawner = GetNativeCell(1);
 	
-	if (iSpawner >= MAX_SPAWN_POINTS || iSpawner < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Spawner index %i is out of bounds", iSpawner);
-	}
-	
 	int iSpawnerClass = GetNativeCell(2);
 	
-	if (iSpawnerClass >= MAX_SPAWNER_CLASSES || iSpawnerClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Spawner class index %i is out of bounds", iSpawnerClass);
-	}
-	
 	g_iSpawnPointsRedClass[iSpawner] = iSpawnerClass;
+	
+	return 0;
 }
 
 public any Native_GetSpawnPointsRedEntity(Handle hPlugin, int iNumParams)
 {
 	int iSpawner = GetNativeCell(1);
-	
-	if (iSpawner >= MAX_SPAWN_POINTS || iSpawner < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Spawner index %i is out of bounds", iSpawner);
-	}
 	
 	return g_iSpawnPointsRedEntity[iSpawner];
 }
@@ -4914,14 +3975,11 @@ public any Native_SetSpawnPointsRedEntity(Handle hPlugin, int iNumParams)
 {
 	int iSpawner = GetNativeCell(1);
 	
-	if (iSpawner >= MAX_SPAWN_POINTS || iSpawner < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Spawner index %i is out of bounds", iSpawner);
-	}
-	
 	int iEntity = GetNativeCell(2);
 	
 	g_iSpawnPointsRedEntity[iSpawner] = iEntity;
+	
+	return 0;
 }
 
 public any Native_GetCurrentBluSpawn(Handle hPlugin, int iNumParams)
@@ -4934,6 +3992,8 @@ public any Native_SetCurrentBluSpawn(Handle hPlugin, int iNumParams)
 	int iBluSpawn = GetNativeCell(1);
 	
 	g_iCurrentBluSpawn = iBluSpawn;
+	
+	return 0;
 }
 
 public any Native_GetSpawnPointsBluCount(Handle hPlugin, int iNumParams)
@@ -4946,16 +4006,13 @@ public any Native_SetSpawnPointsBluCount(Handle hPlugin, int iNumParams)
 	int iCount = GetNativeCell(1);
 	
 	g_iSpawnPointsBluCount = iCount;
+	
+	return 0;
 }
 
 public any Native_GetSpawnPointsBluClass(Handle hPlugin, int iNumParams)
 {
 	int iSpawner = GetNativeCell(1);
-	
-	if (iSpawner >= MAX_SPAWN_POINTS || iSpawner < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Spawner index %i is out of bounds", iSpawner);
-	}
 	
 	return g_iSpawnPointsBluClass[iSpawner];
 }
@@ -4964,29 +4021,16 @@ public any Native_SetSpawnPointsBluClass(Handle hPlugin, int iNumParams)
 {
 	int iSpawner = GetNativeCell(1);
 	
-	if (iSpawner >= MAX_SPAWN_POINTS || iSpawner < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Spawner index %i is out of bounds", iSpawner);
-	}
-	
 	int iSpawnerClass = GetNativeCell(2);
 	
-	if (iSpawnerClass >= MAX_SPAWNER_CLASSES || iSpawnerClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Spawner class index %i is out of bounds", iSpawnerClass);
-	}
-	
 	g_iSpawnPointsBluClass[iSpawner] = iSpawnerClass;
+	
+	return 0;
 }
 
 public any Native_GetSpawnPointsBluEntity(Handle hPlugin, int iNumParams)
 {
 	int iSpawner = GetNativeCell(1);
-	
-	if (iSpawner >= MAX_SPAWN_POINTS || iSpawner < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Spawner index %i is out of bounds", iSpawner);
-	}
 	
 	return g_iSpawnPointsBluEntity[iSpawner];
 }
@@ -4995,14 +4039,11 @@ public any Native_SetSpawnPointsBluEntity(Handle hPlugin, int iNumParams)
 {
 	int iSpawner = GetNativeCell(1);
 	
-	if (iSpawner >= MAX_SPAWN_POINTS || iSpawner < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Spawner index %i is out of bounds", iSpawner);
-	}
-	
 	int iEntity = GetNativeCell(2);
 	
 	g_iSpawnPointsBluEntity[iSpawner] = iEntity;
+	
+	return 0;
 }
 
 public any Native_GetRoundStarted(Handle hPlugin, int iNumParams)
@@ -5030,6 +4071,8 @@ public any Native_SetNextSpawnTime(Handle hPlugin, int iNumParams)
 	float fSpawnTime = GetNativeCell(1);
 	
 	g_fNextSpawnTime = fSpawnTime;
+	
+	return 0;
 }
 
 public any Native_GetLastDeadTeam(Handle hPlugin, int iNumParams)
@@ -5051,11 +4094,6 @@ public any Native_GetRocketFakeEntity(Handle hPlugin, int iNumParams)
 {
 	int iIndex = GetNativeCell(1);
 	
-	if (iIndex >= MAX_ROCKETS || iIndex < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket index %i is out of bounds", iIndex);
-	}
-	
 	return g_iRocketFakeEntity[iIndex];
 }
 
@@ -5063,24 +4101,16 @@ public any Native_SetRocketFakeEntity(Handle hPlugin, int iNumParams)
 {
 	int iIndex = GetNativeCell(1);
 	
-	if (iIndex >= MAX_ROCKETS || iIndex < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket index %i is out of bounds", iIndex);
-	}
-	
 	int iFakeEntity = GetNativeCell(2);
 	
 	g_iRocketFakeEntity[iIndex] = iFakeEntity;
+	
+	return 0;
 }
 
 public any Native_GetRocketSpeed(Handle hPlugin, int iNumParams)
 {
 	int iIndex = GetNativeCell(1);
-	
-	if (iIndex >= MAX_ROCKETS || iIndex < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket index %i is out of bounds", iIndex);
-	}
 	
 	return g_fRocketSpeed[iIndex];
 }
@@ -5089,24 +4119,16 @@ public any Native_SetRocketSpeed(Handle hPlugin, int iNumParams)
 {
 	int iIndex = GetNativeCell(1);
 	
-	if (iIndex >= MAX_ROCKETS || iIndex < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket index %i is out of bounds", iIndex);
-	}
-	
 	float fSpeed = GetNativeCell(2);
 	
 	g_fRocketSpeed[iIndex] = fSpeed;
+	
+	return 0;
 }
 
 public any Native_GetRocketMphSpeed(Handle hPlugin, int iNumParams)
 {
 	int iIndex = GetNativeCell(1);
-	
-	if (iIndex >= MAX_ROCKETS || iIndex < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket index %i is out of bounds", iIndex);
-	}
 	
 	return g_fRocketMphSpeed[iIndex];
 }
@@ -5115,50 +4137,36 @@ public any Native_SetRocketMphSpeed(Handle hPlugin, int iNumParams)
 {
 	int iIndex = GetNativeCell(1);
 	
-	if (iIndex >= MAX_ROCKETS || iIndex < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket index %i is out of bounds", iIndex);
-	}
-	
 	float fSpeed = GetNativeCell(2);
 	
 	g_fRocketMphSpeed[iIndex] = fSpeed;
+	
+	return 0;
 }
 
 public any Native_GetRocketDirection(Handle hPlugin, int iNumParams)
 {
 	int iIndex = GetNativeCell(1);
 	
-	if (iIndex >= MAX_ROCKETS || iIndex < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket index %i is out of bounds", iIndex);
-	}
-	
 	SetNativeArray(2, g_fRocketDirection[iIndex], sizeof(g_fRocketDirection[]));
+	
+	return 0;
 }
 
 public any Native_SetRocketDirection(Handle hPlugin, int iNumParams)
 {
 	int iIndex = GetNativeCell(1);
 	
-	if (iIndex >= MAX_ROCKETS || iIndex < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket index %i is out of bounds", iIndex);
-	}
-	
 	float fDirection[3]; GetNativeArray(2, fDirection, sizeof(fDirection));
 	
 	CopyVectors(fDirection, g_fRocketDirection[iIndex]);
+	
+	return 0;
 }
 
 public any Native_GetRocketLastDeflectionTime(Handle hPlugin, int iNumParams)
 {
 	int iIndex = GetNativeCell(1);
-	
-	if (iIndex >= MAX_ROCKETS || iIndex < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket index %i is out of bounds", iIndex);
-	}
 	
 	return g_fRocketLastDeflectionTime[iIndex];
 }
@@ -5167,24 +4175,16 @@ public any Native_SetRocketLastDeflectionTime(Handle hPlugin, int iNumParams)
 {
 	int iIndex = GetNativeCell(1);
 	
-	if (iIndex >= MAX_ROCKETS || iIndex < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket index %i is out of bounds", iIndex);
-	}
-	
 	float fTime = GetNativeCell(2);
 	
 	g_fRocketLastDeflectionTime[iIndex] = fTime;
+	
+	return 0;
 }
 
 public any Native_GetRocketLastBeepTime(Handle hPlugin, int iNumParams)
 {
 	int iIndex = GetNativeCell(1);
-	
-	if (iIndex >= MAX_ROCKETS || iIndex < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket index %i is out of bounds", iIndex);
-	}
 	
 	return g_fRocketLastBeepTime[iIndex];
 }
@@ -5193,14 +4193,11 @@ public any Native_SetRocketLastBeepTime(Handle hPlugin, int iNumParams)
 {
 	int iIndex = GetNativeCell(1);
 	
-	if (iIndex >= MAX_ROCKETS || iIndex < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket index %i is out of bounds", iIndex);
-	}
-	
 	float fTime = GetNativeCell(2);
 	
 	g_fRocketLastBeepTime[iIndex] = fTime;
+	
+	return 0;
 }
 
 public any Native_GetRocketCount(Handle hPlugin, int iNumParams)
@@ -5208,130 +4205,16 @@ public any Native_GetRocketCount(Handle hPlugin, int iNumParams)
 	return g_iRocketCount;
 }
 
-public any Native_GetIsRocketBouncing(Handle hPlugin, int iNumParams)
-{
-	int iIndex = GetNativeCell(1);
-	
-	if (iIndex >= MAX_ROCKETS || iIndex < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket index %i is out of bounds", iIndex);
-	}
-	
-	return g_bIsRocketBouncing[iIndex];
-}
-
-public any Native_SetIsRocketBouncing(Handle hPlugin, int iNumParams)
-{
-	int iIndex = GetNativeCell(1);
-	
-	if (iIndex >= MAX_ROCKETS || iIndex < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket index %i is out of bounds", iIndex);
-	}
-	
-	bool bBouncing = GetNativeCell(2);
-	
-	g_bIsRocketBouncing[iIndex] = bBouncing;
-}
-
-public any Native_GetIsRocketStolen(Handle hPlugin, int iNumParams)
-{
-	int iIndex = GetNativeCell(1);
-	
-	if (iIndex >= MAX_ROCKETS || iIndex < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket index %i is out of bounds", iIndex);
-	}
-	
-	return g_bIsRocketStolen[iIndex];
-}
-
-public any Native_SetIsRocketStolen(Handle hPlugin, int iNumParams)
-{
-	int iIndex = GetNativeCell(1);
-	
-	if (iIndex >= MAX_ROCKETS || iIndex < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket index %i is out of bounds", iIndex);
-	}
-	
-	bool bStolen = GetNativeCell(2);
-	
-	g_bIsRocketStolen[iIndex] = bStolen;
-}
-
-public any Native_GetPreventingDelay(Handle hPlugin, int iNumParams)
-{
-	int iIndex = GetNativeCell(1);
-	
-	if (iIndex >= MAX_ROCKETS || iIndex < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket index %i is out of bounds", iIndex);
-	}
-	
-	return g_bPreventingDelay[iIndex];
-}
-
-public any Native_SetPreventingDelay(Handle hPlugin, int iNumParams)
-{
-	int iIndex = GetNativeCell(1);
-	
-	if (iIndex >= MAX_ROCKETS || iIndex < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket index %i is out of bounds", iIndex);
-	}
-	
-	bool bDelay = GetNativeCell(2);
-	
-	g_bPreventingDelay[iIndex] = bDelay;
-}
-
 public any Native_GetLastSpawnTime(Handle hPlugin, int iNumParams)
 {
 	int iIndex = GetNativeCell(1);
 	
-	if (iIndex >= MAX_ROCKETS || iIndex < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket index %i is out of bounds", iIndex);
-	}
-	
 	return g_fLastSpawnTime[iIndex];
-}
-
-public any Native_GetIsRocketDraggable(Handle hPlugin, int iNumParams)
-{
-	int iIndex = GetNativeCell(1);
-	
-	if (iIndex >= MAX_ROCKETS || iIndex < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket index %i is out of bounds", iIndex);
-	}
-	
-	return g_bIsRocketDraggable[iIndex];
-}
-
-public any Native_SetIsRocketDraggable(Handle hPlugin, int iNumParams)
-{
-	int iIndex = GetNativeCell(1);
-	
-	if (iIndex >= MAX_ROCKETS || iIndex < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket index %i is out of bounds", iIndex);
-	}
-	
-	bool bDraggable = GetNativeCell(2);
-	
-	g_bIsRocketDraggable[iIndex] = bDraggable;
 }
 
 public any Native_GetRocketBounces(Handle hPlugin, int iNumParams)
 {
 	int iIndex = GetNativeCell(1);
-	
-	if (iIndex >= MAX_ROCKETS || iIndex < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket index %i is out of bounds", iIndex);
-	}
 	
 	return g_iRocketBounces[iIndex];
 }
@@ -5340,204 +4223,160 @@ public any Native_SetRocketBounces(Handle hPlugin, int iNumParams)
 {
 	int iIndex = GetNativeCell(1);
 	
-	if (iIndex >= MAX_ROCKETS || iIndex < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket index %i is out of bounds", iIndex);
-	}
-	
 	int iBounces = GetNativeCell(2);
 	
 	g_iRocketBounces[iIndex] = iBounces;
+	
+	return 0;
 }
 
 public any Native_GetRocketClassName(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
 	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
 	int iMaxLen = GetNativeCell(3);
 	
 	SetNativeString(2, g_strRocketClassName[iClass], iMaxLen);
+	
+	return 0;
 }
 
 public any Native_SetRocketClassName(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
 	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
 	int iMaxLen; GetNativeStringLength(2, iMaxLen);
 	
 	char[] strBuffer = new char[iMaxLen + 1]; GetNativeString(2, strBuffer, iMaxLen + 1);
 	
 	strcopy(g_strRocketClassName[iClass], sizeof(g_strRocketClassName[]), strBuffer);
+	
+	return 0;
 }
 
 public any Native_GetRocketClassLongName(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
 	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
 	int iMaxLen = GetNativeCell(3);
 	
 	SetNativeString(2, g_strRocketClassLongName[iClass], iMaxLen);
+	
+	return 0;
 }
 
 public any Native_SetRocketClassLongName(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
 	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
 	int iMaxLen; GetNativeStringLength(2, iMaxLen);
 	
 	char[] strBuffer = new char[iMaxLen + 1]; GetNativeString(2, strBuffer, iMaxLen + 1);
 	
 	strcopy(g_strRocketClassLongName[iClass], sizeof(g_strRocketClassLongName[]), strBuffer);
+	
+	return 0;
 }
 
 public any Native_GetRocketClassModel(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
 	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
 	int iMaxLen = GetNativeCell(3);
 	
 	SetNativeString(2, g_strRocketClassModel[iClass], iMaxLen);
+	
+	return 0;
 }
 
 public any Native_SetRocketClassModel(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
 	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
 	int iMaxLen; GetNativeStringLength(2, iMaxLen);
 	
 	char[] strBuffer = new char[iMaxLen + 1]; GetNativeString(2, strBuffer, iMaxLen + 1);
 	
 	strcopy(g_strRocketClassModel[iClass], sizeof(g_strRocketClassModel[]), strBuffer);
+	
+	return 0;
 }
 
 public any Native_GetRocketClassTrail(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
 	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
 	int iMaxLen = GetNativeCell(3);
 	
 	SetNativeString(2, g_strRocketClassTrail[iClass], iMaxLen);
+	
+	return 0;
 }
 
 public any Native_SetRocketClassTrail(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
 	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
 	int iMaxLen; GetNativeStringLength(2, iMaxLen);
 	
 	char[] strBuffer = new char[iMaxLen + 1]; GetNativeString(2, strBuffer, iMaxLen + 1);
 	
 	strcopy(g_strRocketClassTrail[iClass], sizeof(g_strRocketClassTrail[]), strBuffer);
+	
+	return 0;
 }
 
 public any Native_GetRocketClassSprite(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
 	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
 	int iMaxLen = GetNativeCell(3);
 	
 	SetNativeString(2, g_strRocketClassSprite[iClass], iMaxLen);
+	
+	return 0;
 }
 
 public any Native_SetRocketClassSprite(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
 	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
 	int iMaxLen; GetNativeStringLength(2, iMaxLen);
 	
 	char[] strBuffer = new char[iMaxLen + 1]; GetNativeString(2, strBuffer, iMaxLen + 1);
 	
 	strcopy(g_strRocketClassSprite[iClass], sizeof(g_strRocketClassSprite[]), strBuffer);
+	
+	return 0;
 }
 
 public any Native_GetRocketClassSpriteColor(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
 	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
 	int iMaxLen = GetNativeCell(3);
 	
 	SetNativeString(2, g_strRocketClassSpriteColor[iClass], iMaxLen);
+	
+	return 0;
 }
 
 public any Native_SetRocketClassSpriteColor(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
 	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
 	int iMaxLen; GetNativeStringLength(2, iMaxLen);
 	
 	char[] strBuffer = new char[iMaxLen + 1]; GetNativeString(2, strBuffer, iMaxLen + 1);
 	
 	strcopy(g_strRocketClassSpriteColor[iClass], sizeof(g_strRocketClassSpriteColor[]), strBuffer);
+	
+	return 0;
 }
 
 public any Native_GetRocketClassSpriteLifetime(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
-	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
 	
 	return g_fRocketClassSpriteLifetime[iClass];
 }
@@ -5546,24 +4385,16 @@ public any Native_SetRocketClassSpriteLifetime(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
 	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
 	float fLifetime = GetNativeCell(2);
 	
 	g_fRocketClassSpriteLifetime[iClass] = fLifetime;
+	
+	return 0;
 }
 
 public any Native_GetRocketClassSpriteStartWidth(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
-	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
 	
 	return g_fRocketClassSpriteStartWidth[iClass];
 }
@@ -5572,24 +4403,16 @@ public any Native_SetRocketClassSpriteStartWidth(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
 	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
 	float fWidth = GetNativeCell(2);
 	
 	g_fRocketClassSpriteStartWidth[iClass] = fWidth;
+	
+	return 0;
 }
 
 public any Native_GetRocketClassSpriteEndWidth(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
-	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
 	
 	return g_fRocketClassSpriteEndWidth[iClass];
 }
@@ -5598,24 +4421,16 @@ public any Native_SetRocketClassSpriteEndWidth(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
 	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
 	float fWidth = GetNativeCell(2);
 	
 	g_fRocketClassSpriteEndWidth[iClass] = fWidth;
+	
+	return 0;
 }
 
 public any Native_GetRocketClassBeepInterval(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
-	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
 	
 	return g_fRocketClassBeepInterval[iClass];
 }
@@ -5624,114 +4439,88 @@ public any Native_SetRocketClassBeepInterval(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
 	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
 	float fInterval = GetNativeCell(2);
 	
 	g_fRocketClassBeepInterval[iClass] = fInterval;
+	
+	return 0;
 }
 
 public any Native_GetRocketClassSpawnSound(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
 	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
 	int iMaxLen = GetNativeCell(3);
 	
 	SetNativeString(2, g_strRocketClassSpawnSound[iClass], iMaxLen);
+	
+	return 0;
 }
 
 public any Native_SetRocketClassSpawnSound(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
 	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
 	int iMaxLen; GetNativeStringLength(2, iMaxLen);
 	
 	char[] strBuffer = new char[iMaxLen + 1]; GetNativeString(2, strBuffer, iMaxLen + 1);
 	
 	strcopy(g_strRocketClassSpawnSound[iClass], sizeof(g_strRocketClassSpawnSound[]), strBuffer);
+	
+	return 0;
 }
 
 public any Native_GetRocketClassBeepSound(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
 	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
 	int iMaxLen = GetNativeCell(3);
 	
 	SetNativeString(2, g_strRocketClassBeepSound[iClass], iMaxLen);
+	
+	return 0;
 }
 
 public any Native_SetRocketClassBeepSound(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
 	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
 	int iMaxLen; GetNativeStringLength(2, iMaxLen);
 	
 	char[] strBuffer = new char[iMaxLen + 1]; GetNativeString(2, strBuffer, iMaxLen + 1);
 	
 	strcopy(g_strRocketClassBeepSound[iClass], sizeof(g_strRocketClassBeepSound[]), strBuffer);
+	
+	return 0;
 }
 
 public any Native_GetRocketClassAlertSound(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
 	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
 	int iMaxLen = GetNativeCell(3);
 	
 	SetNativeString(2, g_strRocketClassAlertSound[iClass], iMaxLen);
+	
+	return 0;
 }
 
 public any Native_SetRocketClassAlertSound(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
 	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
 	int iMaxLen; GetNativeStringLength(2, iMaxLen);
 	
 	char[] strBuffer = new char[iMaxLen + 1]; GetNativeString(2, strBuffer, iMaxLen + 1);
 	
 	strcopy(g_strRocketClassAlertSound[iClass], sizeof(g_strRocketClassAlertSound[]), strBuffer);
+	
+	return 0;
 }
 
 public any Native_GetRocketClassCritChance(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
-	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
 	
 	return g_fRocketClassCritChance[iClass];
 }
@@ -5740,24 +4529,16 @@ public any Native_SetRocketClassCritChance(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
 	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
 	float fChance = GetNativeCell(2);
 	
 	g_fRocketClassCritChance[iClass] = fChance;
+	
+	return 0;
 }
 
 public any Native_GetRocketClassTargetWeight(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
-	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
 	
 	return g_fRocketClassTargetWeight[iClass];
 }
@@ -5766,24 +4547,16 @@ public any Native_SetRocketClassTargetWeight(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
 	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
 	float fWeight = GetNativeCell(2);
 	
 	g_fRocketClassTargetWeight[iClass] = fWeight;
+	
+	return 0;
 }
 
 public any Native_GetRocketClassCmdsOnSpawn(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
-	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
 	
 	Handle hClone = CloneHandle(g_hRocketClassCmdsOnSpawn[iClass], hPlugin);
 	
@@ -5794,11 +4567,6 @@ public any Native_SetRocketClassCmdsOnSpawn(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
 	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
 	DataPack hCmds = GetNativeCell(2);
 	
 	hCmds = view_as<DataPack>(CloneHandle(hCmds));
@@ -5806,16 +4574,13 @@ public any Native_SetRocketClassCmdsOnSpawn(Handle hPlugin, int iNumParams)
 	delete g_hRocketClassCmdsOnSpawn[iClass];
 	
 	g_hRocketClassCmdsOnSpawn[iClass] = hCmds;
+	
+	return 0;
 }
 
 public any Native_GetRocketClassCmdsOnDeflect(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
-	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
 	
 	Handle hClone = CloneHandle(g_hRocketClassCmdsOnDeflect[iClass], hPlugin);
 	
@@ -5826,11 +4591,6 @@ public any Native_SetRocketClassCmdsOnDeflect(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
 	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
 	DataPack hCmds = GetNativeCell(2);
 	
 	hCmds = view_as<DataPack>(CloneHandle(hCmds));
@@ -5838,16 +4598,13 @@ public any Native_SetRocketClassCmdsOnDeflect(Handle hPlugin, int iNumParams)
 	delete g_hRocketClassCmdsOnDeflect[iClass];
 	
 	g_hRocketClassCmdsOnDeflect[iClass] = hCmds;
+	
+	return 0;
 }
 
 public any Native_GetRocketClassCmdsOnKill(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
-	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
 	
 	Handle hClone = CloneHandle(g_hRocketClassCmdsOnKill[iClass], hPlugin);
 	
@@ -5858,11 +4615,6 @@ public any Native_SetRocketClassCmdsOnKill(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
 	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
 	DataPack hCmds = GetNativeCell(2);
 	
 	hCmds = view_as<DataPack>(CloneHandle(hCmds));
@@ -5870,16 +4622,13 @@ public any Native_SetRocketClassCmdsOnKill(Handle hPlugin, int iNumParams)
 	delete g_hRocketClassCmdsOnKill[iClass];
 	
 	g_hRocketClassCmdsOnKill[iClass] = hCmds;
+	
+	return 0;
 }
 
 public any Native_GetRocketClassCmdsOnExplode(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
-	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
 	
 	Handle hClone = CloneHandle(g_hRocketClassCmdsOnExplode[iClass], hPlugin);
 	
@@ -5890,11 +4639,6 @@ public any Native_SetRocketClassCmdsOnExplode(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
 	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
 	DataPack hCmds = GetNativeCell(2);
 	
 	hCmds = view_as<DataPack>(CloneHandle(hCmds));
@@ -5902,16 +4646,13 @@ public any Native_SetRocketClassCmdsOnExplode(Handle hPlugin, int iNumParams)
 	delete g_hRocketClassCmdsOnExplode[iClass];
 	
 	g_hRocketClassCmdsOnExplode[iClass] = hCmds;
+	
+	return 0;
 }
 
 public any Native_GetRocketClassCmdsOnNoTarget(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
-	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
 	
 	Handle hClone = CloneHandle(g_hRocketClassCmdsOnNoTarget[iClass], hPlugin);
 	
@@ -5922,11 +4663,6 @@ public any Native_SetRocketClassCmdsOnNoTarget(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
 	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
 	DataPack hCmds = GetNativeCell(2);
 	
 	hCmds = view_as<DataPack>(CloneHandle(hCmds));
@@ -5934,16 +4670,13 @@ public any Native_SetRocketClassCmdsOnNoTarget(Handle hPlugin, int iNumParams)
 	delete g_hRocketClassCmdsOnNoTarget[iClass];
 	
 	g_hRocketClassCmdsOnNoTarget[iClass] = hCmds;
+	
+	return 0;
 }
 
 public any Native_GetRocketClassBounceScale(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
-	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
 	
 	return g_fRocketClassBounceScale[iClass];
 }
@@ -5952,14 +4685,11 @@ public any Native_SetRocketClassBounceScale(Handle hPlugin, int iNumParams)
 {
 	int iClass = GetNativeCell(1);
 	
-	if (iClass >= MAX_ROCKET_CLASSES || iClass < 0)
-	{
-		ThrowNativeError(SP_ERROR_NATIVE, "Rocket class index %i is out of bounds", iClass);
-	}
-	
 	float fScale = GetNativeCell(2);
 	
 	g_fRocketClassBounceScale[iClass] = fScale;
+	
+	return 0;
 }
 
 public any Native_CreateRocket(Handle hPlugin, int iNumParams)
@@ -5970,6 +4700,8 @@ public any Native_CreateRocket(Handle hPlugin, int iNumParams)
 	int iClass = GetNativeCell(4);
 	
 	CreateRocket(iSpawnerEntity, iSpawnerClass, iTeam, iClass);
+	
+	return 0;
 }
 
 public any Native_DestroyRocket(Handle hPlugin, int iNumParams)
@@ -5977,21 +4709,29 @@ public any Native_DestroyRocket(Handle hPlugin, int iNumParams)
 	int iIndex = GetNativeCell(1);
 	
 	DestroyRocket(iIndex);
+	
+	return 0;
 }
 
 public any Native_DestroyRockets(Handle hPlugin, int iNumParams)
 {
 	DestroyRockets();
+	
+	return 0;
 }
 
 public any Native_DestroyRocketClasses(Handle hPlugin, int iNumParams)
 {
 	DestroyRocketClasses();
+	
+	return 0;
 }
 
 public any Native_DestroySpawners(Handle hPlugin, int iNumParams)
 {
 	DestroySpawners();
+	
+	return 0;
 }
 
 public any Native_ParseConfigurations(Handle hPlugin, int iNumParams)
@@ -6001,11 +4741,15 @@ public any Native_ParseConfigurations(Handle hPlugin, int iNumParams)
 	char[] strBuffer = new char[iMaxLen + 1]; GetNativeString(1, strBuffer, iMaxLen + 1);
 	
 	ParseConfigurations(strBuffer);
+	
+	return 0;
 }
 
 public any Native_PopulateSpawnPoints(Handle hPlugin, int iNumParams)
 {
 	PopulateSpawnPoints();
+	
+	return 0;
 }
 
 public any Native_HomingRocketThink(Handle hPlugin, int iNumParams)
@@ -6013,6 +4757,8 @@ public any Native_HomingRocketThink(Handle hPlugin, int iNumParams)
 	int iIndex = GetNativeCell(1);
 	
 	HomingRocketThink(iIndex);
+	
+	return 0;
 }
 
 public any Native_RocketOtherThink(Handle hPlugin, int iNumParams)
@@ -6020,6 +4766,8 @@ public any Native_RocketOtherThink(Handle hPlugin, int iNumParams)
 	int iIndex = GetNativeCell(1);
 	
 	RocketOtherThink(iIndex);
+	
+	return 0;
 }
 
 public any Native_RocketLegacyThink(Handle hPlugin, int iNumParams)
@@ -6027,6 +4775,60 @@ public any Native_RocketLegacyThink(Handle hPlugin, int iNumParams)
 	int iIndex = GetNativeCell(1);
 	
 	RocketLegacyThink(iIndex);
+	
+	return 0;
+}
+
+public any Native_GetRocketState(Handle hPlugin, int iNumParams)
+{
+	int iIndex = GetNativeCell(1);
+	
+	return g_iRocketState[iIndex];
+}
+
+public any Native_SetRocketState(Handle hPlugin, int iNumParams)
+{
+	int iIndex = GetNativeCell(1);
+	
+	RocketState iState = GetNativeCell(2);
+	
+	Internal_SetRocketState(iIndex, iState);
+	
+	return 0;
+}
+
+public any Native_GetStealInfo(Handle hPlugin, int iNumParams)
+{
+	int iClient = GetNativeCell(1);
+	
+	DataPack hPack = new DataPack();
+	hPack.WriteCellArray(bStealArray[iClient], sizeof(eRocketSteal));
+	
+	DataPack hClone = view_as<DataPack>(CloneHandle(hPack, hPlugin));
+	
+	delete hPack;
+	
+	return hClone;
+}
+
+public any Native_SetStealInfo(Handle hPlugin, int iNumParams)
+{
+	int iClient = GetNativeCell(1);
+	
+	DataPack hPack = GetNativeCell(2);
+	
+	hPack = view_as<DataPack>(CloneHandle(hPack));
+	
+	eRocketSteal eStealArray;
+	
+	hPack.Reset();
+	hPack.ReadCellArray(eStealArray, sizeof(eRocketSteal));
+	
+	bStealArray[iClient] = eStealArray;
+	
+	delete hPack;
+	
+	return 0;
 }
 
 void Forward_OnRocketCreated(int iIndex, int iEntity)
@@ -6048,15 +4850,6 @@ Action Forward_OnRocketCreatedPre(int iIndex, int &iClass, RocketFlags &iFlags)
 	Call_Finish(aResult);
 	
 	return aResult;
-}
-
-void Forward_OnRocketAltDeflect(int iIndex, int iEntity, int iOwner)
-{
-	Call_StartForward(g_hForwardOnRocketAltDeflect);
-	Call_PushCell(iIndex);
-	Call_PushCell(iEntity);
-	Call_PushCell(iOwner);
-	Call_Finish();
 }
 
 void Forward_OnRocketDeflect(int iIndex, int iEntity, int iOwner)
@@ -6136,6 +4929,28 @@ void Forward_OnRocketsConfigExecuted(const char[] strConfigFile)
 	Call_StartForward(g_hForwardOnRocketsConfigExecuted);
 	Call_PushString(strConfigFile);
 	Call_Finish();
+}
+
+void Forward_OnRocketStateChanged(int iIndex, RocketState iState, RocketState iNewState)
+{
+	Call_StartForward(g_hForwardOnRocketStateChanged);
+	Call_PushCell(iIndex);
+	Call_PushCell(iState);
+	Call_PushCell(iNewState);
+	Call_Finish();
+}
+
+void Internal_SetRocketState(int iIndex, RocketState iNewState)
+{
+	RocketState iState = g_iRocketState[iIndex];
+	
+	if (iState == iNewState)
+	{
+		return;
+	}
+	
+	g_iRocketState[iIndex] = iNewState;
+	Forward_OnRocketStateChanged(iIndex, iState, iNewState);
 }
 
 // EOF

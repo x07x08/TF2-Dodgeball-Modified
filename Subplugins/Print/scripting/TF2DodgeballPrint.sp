@@ -1,12 +1,11 @@
 #pragma semicolon 1
+#pragma newdecls required
 
 #define PLUGIN_AUTHOR "x07x08"
 #define PLUGIN_VERSION "1.0.2"
 
 #include <sourcemod>
-#include <morecolors>
-
-#pragma newdecls required
+#include <multicolors>
 
 public Plugin myinfo = 
 {

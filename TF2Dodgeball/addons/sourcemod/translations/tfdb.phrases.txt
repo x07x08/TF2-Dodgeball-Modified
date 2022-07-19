@@ -2,7 +2,7 @@
 {
 	"Command_Disabled"
 	{
-		"en"	 	"This command is disabled as the dodgeball gamemode is not enabled."
+		"en"	 	"[{olive}TFDB{default}] This command is disabled."
 	}
 	
 	"Command_DBExplosion_Usage"
@@ -15,50 +15,10 @@
 		"en"		"Usage : tf_dodgeball_shockwave <client index> <damage> <push strength> <radius> <falloff>"
 	}
 	
-	"Command_DBRocketSpeed_Usage"
-	{
-		"en"		"Usage : tf_dodgeball_rocketspeed <rocket class index> <speed> <speed increment> <speed limit>"
-	}
-	
-	"Command_DBRocketTurnRate_Usage"
-	{
-		"en"		"Usage : tf_dodgeball_rocketturnrate <rocket class index> <turn rate> <turn rate increment> <turn rate limit>"
-	}
-	
-	"Command_DBRocketElevation_Usage"
-	{
-		"en"		"Usage : tf_dodgeball_rocketelevation <rocket class index> <elevation rate> <elevation limit>"
-	}
-	
-	"Command_DBSpawners_Usage"
-	{
-		"en"		"Usage : tf_dodgeball_spawners <max rockets> <rocket class index> <chances>"
-	}
-	
 	"Command_DBRefresh_Done"
 	{
 		"#format"	"{1:N}"
 		"en"		"[{olive}TFDB{default}] {darkorange}{1}{default} refreshed the {steelblue}dodgeball configs{default}."
-	}
-	
-	"Command_DBRefresh_Usage"
-	{
-		"en"		"Usage : tf_dodgeball_refresh"
-	}
-	
-	"Command_DBRocketDestroy_Usage"
-	{
-		"en"		"Usage : tf_dodgeball_destroyrockets"
-	}
-	
-	"Command_DBRocketOtherParams_Usage"
-	{
-		"en"		"Usage : tf_dodgeball_rocketotherparams <rocket class index> <neutral rocket 0/1> <keep direction 0/1> <teamless hits 0/1> <reset bounces 0/1> <max bounces>"
-	}
-	
-	"Command_DBRocketDragParams_Usage"
-	{
-		"en"		"Usage : tf_dodgeball_rocketdragparams <rocket class index> <min drag time> <max drag time> <no bounce drags 0/1>"
 	}
 	
 	"Command_DBHideParticles_Hidden"
@@ -71,11 +31,6 @@
 		"en"		"[{olive}TFDB{default}] Custom rocket {darkorange}particle{default} trails are now {steelblue}visible{default}."
 	}
 	
-	"Command_DBHideParticles_Usage"
-	{
-		"en"		"Usage : sm_togglerockettrails"
-	}
-	
 	"Command_DBHideSprites_Hidden"
 	{
 		"en"		"[{olive}TFDB{default}] Custom rocket {darkorange}sprite{default} trails are now {steelblue}hidden{default}."
@@ -84,11 +39,6 @@
 	"Command_DBHideSprites_Visible"
 	{
 		"en"		"[{olive}TFDB{default}] Custom rocket {darkorange}sprite{default} trails are now {steelblue}visible{default}."
-	}
-	
-	"Command_DBHideSprites_Usage"
-	{
-		"en"		"Usage : sm_togglerocketsprites"
 	}
 	
 	"DBSteal_Warning_Client"
@@ -118,5 +68,424 @@
 	{
 		"#format"	"{1:N}"
 		"en"		"[{olive}TFDB{default}] {darkorange}{1}{default} is delaying, the rocket will now speed up."
+	}
+	
+	"Dodgeball_Disabled"
+	{
+		"en"	 	"[{olive}TFDB{default}] Dodgeball is disabled."
+	}
+	
+	"Hud_Enabled"
+	{
+		"en"	 	"[{olive}TFDB{default}] Rocket speedometer is now {darkorange}enabled{default}."
+	}
+	
+	"Hud_Disabled"
+	{
+		"en"	 	"[{olive}TFDB{default}] Rocket speedometer is now {darkorange}disabled{default}."
+	}
+	
+	// {1} - MpH speed (Miles per Hour)
+	// {2} - HU speed (Hammer Units)
+	// {3} - Deflections
+	
+	"Hud_Speedometer"
+	{
+		"#format"	"{1:.0f},{2:.0f},{3:i}"
+		"en"	 	"Speed : {1} MpH"
+	}
+	
+	"Menu_NoRockets"
+	{
+		"en"		"[{olive}TFDB{default}] There are {red}no active{default} rockets."
+	}
+	
+	"Menu_InvalidRocket"
+	{
+		"en"		"[{olive}TFDB{default}] This rocket is {red}not valid{default} anymore."
+	}
+	
+	"Menu_InvalidClient"
+	{
+		"en"		"[{olive}TFDB{default}] Client is dead or has disconnected from the server."
+	}
+	
+	"Menu_CannotTarget"
+	{
+		"en"		"[{olive}TFDB{default}] Can't change target to this client."
+	}
+	
+	"Menu_SameTarget"
+	{
+		"en"		"[{olive}TFDB{default}] Can't change to the same target."
+	}
+	
+	"Menu_ChangedTarget"
+	{
+		"#format"	"{1:N}"
+		"en"		"[{olive}TFDB{default}] Changed the target of a rocket to {darkorange}{1}{default}."
+	}
+	
+	"Menu_SameRocketClass"
+	{
+		"en"		"[{olive}TFDB{default}] Can't change to the same class."
+	}
+	
+	"Menu_ChangedRocketClass"
+	{
+		"#format"	"{1:s},{2:s}"
+		"en"		"[{olive}TFDB{default}] Changed the class of a rocket from {darkorange}{1}{default} to {steelblue}{2}{default}."
+	}
+	
+	"Menu_Reset"
+	{
+		"en"		"[{olive}TFDB{default}] Type -1 to reset it."
+	}
+	
+	"Menu_ResetBeepInterval"
+	{
+		"en"		"[{olive}TFDB{default}] Type -1 to reset it, 0 to disable beeping."
+	}
+	
+	"Menu_ResetSpeedLimit"
+	{
+		"en"		"[{olive}TFDB{default}] Type -1 to reset it, 0 to disable the speed limit."
+	}
+	
+	"Menu_ResetTurnRateLimit"
+	{
+		"en"		"[{olive}TFDB{default}] Type -1 to reset it, 0 to disable the turn rate limit."
+	}
+	
+	"Menu_SpriteColor"
+	{
+		"#format"	"{1:i}"
+		"en"		"[{olive}TFDB{default}] Type in chat the new sprite trail color (HEX or RGB) within {darkorange}{1}{default} seconds."
+	}
+	
+	"Menu_SpriteLifetime"
+	{
+		"#format"	"{1:i}"
+		"en"		"[{olive}TFDB{default}] Type in chat the new sprite trail duration within {darkorange}{1}{default} seconds."
+	}
+	
+	"Menu_SpriteStartWidth"
+	{
+		"#format"	"{1:i}"
+		"en"		"[{olive}TFDB{default}] Type in chat the new sprite trail start width within {darkorange}{1}{default} seconds."
+	}
+	
+	"Menu_SpriteEndWidth"
+	{
+		"#format"	"{1:i}"
+		"en"		"[{olive}TFDB{default}] Type in chat the new sprite trail end width within {darkorange}{1}{default} seconds."
+	}
+	
+	"Menu_BeepInterval"
+	{
+		"#format"	"{1:i}"
+		"en"		"[{olive}TFDB{default}] Type in chat the new beep interval within {darkorange}{1}{default} seconds."
+	}
+	
+	"Menu_CritChance"
+	{
+		"#format"	"{1:i}"
+		"en"		"[{olive}TFDB{default}] Type in chat the new critical rocket chance within {darkorange}{1}{default} seconds."
+	}
+	
+	"Menu_Damage"
+	{
+		"#format"	"{1:i}"
+		"en"		"[{olive}TFDB{default}] Type in chat the new damage within {darkorange}{1}{default} seconds."
+	}
+	
+	"Menu_DamageIncrement"
+	{
+		"#format"	"{1:i}"
+		"en"		"[{olive}TFDB{default}] Type in chat the new damage increment within {darkorange}{1}{default} seconds."
+	}
+	
+	"Menu_Speed"
+	{
+		"#format"	"{1:i}"
+		"en"		"[{olive}TFDB{default}] Type in chat the new speed within {darkorange}{1}{default} seconds."
+	}
+	
+	"Menu_SpeedIncrement"
+	{
+		"#format"	"{1:i}"
+		"en"		"[{olive}TFDB{default}] Type in chat the new speed increment within {darkorange}{1}{default} seconds."
+	}
+	
+	"Menu_SpeedLimit"
+	{
+		"#format"	"{1:i}"
+		"en"		"[{olive}TFDB{default}] Type in chat the new speed limit within {darkorange}{1}{default} seconds."
+	}
+	
+	"Menu_TurnRate"
+	{
+		"#format"	"{1:i}"
+		"en"		"[{olive}TFDB{default}] Type in chat the new turn rate within {darkorange}{1}{default} seconds."
+	}
+	
+	"Menu_TurnRateIncrement"
+	{
+		"#format"	"{1:i}"
+		"en"		"[{olive}TFDB{default}] Type in chat the new turn rate increment within {darkorange}{1}{default} seconds."
+	}
+	
+	"Menu_TurnRateLimit"
+	{
+		"#format"	"{1:i}"
+		"en"		"[{olive}TFDB{default}] Type in chat the new turn rate limit within {darkorange}{1}{default} seconds."
+	}
+	
+	"Menu_ElevationRate"
+	{
+		"#format"	"{1:i}"
+		"en"		"[{olive}TFDB{default}] Type in chat the new elevation rate within {darkorange}{1}{default} seconds."
+	}
+	
+	"Menu_ElevationLimit"
+	{
+		"#format"	"{1:i}"
+		"en"		"[{olive}TFDB{default}] Type in chat the new elevation limit within {darkorange}{1}{default} seconds."
+	}
+	
+	"Menu_RocketsModifier"
+	{
+		"#format"	"{1:i}"
+		"en"		"[{olive}TFDB{default}] Type in chat the new fired rockets modifier within {darkorange}{1}{default} seconds."
+	}
+	
+	"Menu_PlayerModifier"
+	{
+		"#format"	"{1:i}"
+		"en"		"[{olive}TFDB{default}] Type in chat the new player count modifier within {darkorange}{1}{default} seconds."
+	}
+	
+	"Menu_ControlDelay"
+	{
+		"#format"	"{1:i}"
+		"en"		"[{olive}TFDB{default}] Type in chat the new control delay within {darkorange}{1}{default} seconds."
+	}
+	
+	"Menu_DragTimeMin"
+	{
+		"#format"	"{1:i}"
+		"en"		"[{olive}TFDB{default}] Type in chat the new drag time start within {darkorange}{1}{default} seconds."
+	}
+	
+	"Menu_DragTimeMax"
+	{
+		"#format"	"{1:i}"
+		"en"		"[{olive}TFDB{default}] Type in chat the new drag time end within {darkorange}{1}{default} seconds."
+	}
+	
+	"Menu_TargetWeight"
+	{
+		"#format"	"{1:i}"
+		"en"		"[{olive}TFDB{default}] Type in chat the new target weight within {darkorange}{1}{default} seconds."
+	}
+	
+	"Menu_MaxBounces"
+	{
+		"#format"	"{1:i}"
+		"en"		"[{olive}TFDB{default}] Type in chat the new maximum bounces within {darkorange}{1}{default} seconds."
+	}
+	
+	"Menu_BounceScale"
+	{
+		"#format"	"{1:i}"
+		"en"		"[{olive}TFDB{default}] Type in chat the new bounce scale within {darkorange}{1}{default} seconds."
+	}
+	
+	"Menu_MaxRockets"
+	{
+		"#format"	"{1:i}"
+		"en"		"[{olive}TFDB{default}] Type in chat the new maximum rockets count within {darkorange}{1}{default} seconds."
+	}
+	
+	"Menu_Interval"
+	{
+		"#format"	"{1:i}"
+		"en"		"[{olive}TFDB{default}] Type in chat the new rocket spawn interval within {darkorange}{1}{default} seconds."
+	}
+	
+	"Menu_ChancesTable"
+	{
+		"#format"	"{1:i}"
+		"en"		"[{olive}TFDB{default}] Type in chat the new rocket class spawn chances within {darkorange}{1}{default} seconds."
+	}
+	
+	// Escaping x07<HEX> doesn't work. Parsing it as an argument does the job.
+	
+	"Menu_ChangedSpriteColor"
+	{
+		"#format"	"{1:c},{2:s},{3:s}"
+		"en"		"[{olive}TFDB{default}] Changed rocket class sprite trail color to {1}{2}#{3}."
+	}
+	
+	"Menu_ResetSpriteColor"
+	{
+		"#format"	"{1:c},{2:s},{3:s}"
+		"en"		"[{olive}TFDB{default}] Reset rocket class sprite trail color to {1}{2}#{3}."
+	}
+	
+	"Menu_ChangedSpriteLifetime"
+	{
+		"#format"	"{1:.2f}"
+		"en"		"[{olive}TFDB{default}] Changed rocket class sprite trail duration to {darkorange}{1}{default}."
+	}
+	
+	"Menu_ChangedSpriteStartWidth"
+	{
+		"#format"	"{1:.2f}"
+		"en"		"[{olive}TFDB{default}] Changed rocket class sprite trail start width to {darkorange}{1}{default}."
+	}
+	
+	"Menu_ChangedSpriteEndWidth"
+	{
+		"#format"	"{1:.2f}"
+		"en"		"[{olive}TFDB{default}] Changed rocket class sprite trail end width to {darkorange}{1}{default}."
+	}
+	
+	"Menu_ChangedBeepInterval"
+	{
+		"#format"	"{1:.2f}"
+		"en"		"[{olive}TFDB{default}] Changed rocket class beep interval to {darkorange}{1}{default}."
+	}
+	
+	"Menu_ChangedCritChance"
+	{
+		"#format"	"{1:.2f}"
+		"en"		"[{olive}TFDB{default}] Changed rocket class critical chance to {darkorange}{1}{default}."
+	}
+	
+	"Menu_ChangedDamage"
+	{
+		"#format"	"{1:.2f}"
+		"en"		"[{olive}TFDB{default}] Changed rocket class damage to {darkorange}{1}{default}."
+	}
+	
+	"Menu_ChangedDamageIncrement"
+	{
+		"#format"	"{1:.2f}"
+		"en"		"[{olive}TFDB{default}] Changed rocket class damage increment to {darkorange}{1}{default}."
+	}
+	
+	"Menu_ChangedSpeed"
+	{
+		"#format"	"{1:.2f}"
+		"en"		"[{olive}TFDB{default}] Changed rocket class speed to {darkorange}{1}{default}."
+	}
+	
+	"Menu_ChangedSpeedIncrement"
+	{
+		"#format"	"{1:.2f}"
+		"en"		"[{olive}TFDB{default}] Changed rocket class speed increment to {darkorange}{1}{default}."
+	}
+	
+	"Menu_ChangedSpeedLimit"
+	{
+		"#format"	"{1:.2f}"
+		"en"		"[{olive}TFDB{default}] Changed rocket class speed limit to {darkorange}{1}{default}."
+	}
+	
+	"Menu_ChangedTurnRate"
+	{
+		"#format"	"{1:.2f}"
+		"en"		"[{olive}TFDB{default}] Changed rocket class turn rate to {darkorange}{1}{default}."
+	}
+	
+	"Menu_ChangedTurnRateIncrement"
+	{
+		"#format"	"{1:.2f}"
+		"en"		"[{olive}TFDB{default}] Changed rocket class turn rate increment to {darkorange}{1}{default}."
+	}
+	
+	"Menu_ChangedTurnRateLimit"
+	{
+		"#format"	"{1:.2f}"
+		"en"		"[{olive}TFDB{default}] Changed rocket class turn rate limit to {darkorange}{1}{default}."
+	}
+	
+	"Menu_ChangedElevationRate"
+	{
+		"#format"	"{1:.2f}"
+		"en"		"[{olive}TFDB{default}] Changed rocket class elevation rate to {darkorange}{1}{default}."
+	}
+	
+	"Menu_ChangedElevationLimit"
+	{
+		"#format"	"{1:.2f}"
+		"en"		"[{olive}TFDB{default}] Changed rocket class elevation limit to {darkorange}{1}{default}."
+	}
+	
+	"Menu_ChangedRocketsModifier"
+	{
+		"#format"	"{1:.2f}"
+		"en"		"[{olive}TFDB{default}] Changed rocket class fired rockets modifier to {darkorange}{1}{default}."
+	}
+	
+	"Menu_ChangedPlayerModifier"
+	{
+		"#format"	"{1:.2f}"
+		"en"		"[{olive}TFDB{default}] Changed rocket class player count modifier to {darkorange}{1}{default}."
+	}
+	
+	"Menu_ChangedControlDelay"
+	{
+		"#format"	"{1:.2f}"
+		"en"		"[{olive}TFDB{default}] Changed rocket class control delay to {darkorange}{1}{default}."
+	}
+	
+	"Menu_ChangedDragTimeMin"
+	{
+		"#format"	"{1:.2f}"
+		"en"		"[{olive}TFDB{default}] Changed rocket class drag time start to {darkorange}{1}{default}."
+	}
+	
+	"Menu_ChangedDragTimeMax"
+	{
+		"#format"	"{1:.2f}"
+		"en"		"[{olive}TFDB{default}] Changed rocket class drag time end to {darkorange}{1}{default}."
+	}
+	
+	"Menu_ChangedTargetWeight"
+	{
+		"#format"	"{1:.2f}"
+		"en"		"[{olive}TFDB{default}] Changed rocket class target weight to {darkorange}{1}{default}."
+	}
+	
+	"Menu_ChangedMaxBounces"
+	{
+		"#format"	"{1:i}"
+		"en"		"[{olive}TFDB{default}] Changed rocket class maximum bounces to {darkorange}{1}{default}."
+	}
+	
+	"Menu_ChangedBounceScale"
+	{
+		"#format"	"{1:.2f}"
+		"en"		"[{olive}TFDB{default}] Changed rocket class bounce scale to {darkorange}{1}{default}."
+	}
+	
+	"Menu_ChangedMaxRockets"
+	{
+		"#format"	"{1:i}"
+		"en"		"[{olive}TFDB{default}] Changed spawners maximum rockets to {darkorange}{1}{default}."
+	}
+	
+	"Menu_ChangedInterval"
+	{
+		"#format"	"{1:.2f}"
+		"en"		"[{olive}TFDB{default}] Changed spawners rocket spawn interval to {darkorange}{1}{default}."
+	}
+	
+	"Menu_ChangedChancesTable"
+	{
+		"#format"	"{1:i}"
+		"en"		"[{olive}TFDB{default}] Changed spawners rocket class chances to {darkorange}{1}{default}."
 	}
 }

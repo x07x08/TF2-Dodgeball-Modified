@@ -128,7 +128,7 @@ public Action OnPlayerTakeDamage(int iVictim, int &iAttacker, int &iInflictor, f
 	return Plugin_Continue;
 }
 
-public Action OnPlayerSpawn(Event hEvent, char[] strEventName, bool bDontBroadcast)
+public void OnPlayerSpawn(Event hEvent, char[] strEventName, bool bDontBroadcast)
 {
 	int iClient = GetClientOfUserId(hEvent.GetInt("userid"));
 	
