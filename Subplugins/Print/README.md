@@ -2,11 +2,11 @@ This subplugin can be used to print messages and replace the client indexes give
 
 To replace an index, surround it in a pair of `"##"` (without quotes). 
 
-[Example : `##@dead##`]
+Example : `##@dead##`
 
 Colors are supported as well (uses [`multicolors.inc`](https://github.com/Bara/Multi-Colors/blob/master/addons/sourcemod/scripting/include/multicolors.inc) to compile).
 
-[Example : `{steelblue}##@dead##{default}`]
+Example : `{steelblue}##@dead##{default}`
 
 # Commands
 ```c
