@@ -4,7 +4,7 @@ To replace an index, surround it in a pair of `"##"` (without quotes).
 
 [Example : `##@dead##`]
 
-Colors are supported too (uses [`morecolors.inc`](https://github.com/DoctorMcKay/sourcemod-plugins/blob/master/scripting/include/morecolors.inc) to compile).
+Colors are supported as well (uses [`multicolors.inc`](https://github.com/Bara/Multi-Colors/blob/master/addons/sourcemod/scripting/include/multicolors.inc) to compile).
 
 [Example : `{steelblue}##@dead##{default}`]
 
@@ -16,5 +16,4 @@ Colors are supported too (uses [`morecolors.inc`](https://github.com/DoctorMcKay
 
 # Credits
 1. Smlib : [GitHub Link](https://github.com/bcserv/smlib)
-2. Simple chat filter by Antithasys : [AlliedMods Link](https://forums.alliedmods.net/showthread.php?t=167822)
-3. Print by Matheus28 : [AlliedMods Link](https://forums.alliedmods.net/showthread.php?p=1363600)
+2. Print by Matheus28 : [AlliedMods Link](https://forums.alliedmods.net/showthread.php?p=1363600)
