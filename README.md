@@ -21,7 +21,6 @@ If you plan on using airblast prevention, make sure to also add the contents of 
 
 # Requirements
 - [Multi-Colors](https://github.com/Bara/Multi-Colors) (compile only).
-- [More Colors](https://forums.alliedmods.net/showthread.php?t=185016) (compile for the print plugin).
 
 # Nuke model
 By default, the plugin uses a custom model for the `"nuke"` rocket class. It can be found here : [AlliedMods Link](https://forums.alliedmods.net/showpost.php?s=8fa72450fa0c4941c927d01d2d6245c9&p=2180141&postcount=350)
@@ -34,12 +33,11 @@ By default, the plugin uses a custom model for the `"nuke"` rocket class. It can
 - Limits for speed and turnrate parameters.
 - No damage on rockets if the target suicides / disconnects (toggleable via a CVar).
 - No damage on stolen rockets (toggleable via a CVar).
-- Commands to modify the movement parameters of a rocket.
 - Custom trails toggleable client-side.
 
 # Fixes
-- Fixed some errors caused by invalid client indexes in timers.
-- Fixed the wrong rocket class being rarely chosen.
+- Fixed looping explosion sounds.
+- Fixed 0% chance rocket classes being rarely chosen.
 - Fixed neutral rockets.
 
 # Known bugs
@@ -49,6 +47,5 @@ None at the moment. Report bugs using the [Issues](https://github.com/x07x08/TF2
 1. The original YADB plugin by Damizean : [AlliedMods Link](https://forums.alliedmods.net/showthread.php?t=134503)
 2. The updated YADB plugin by bloody & lizzy : [AlliedMods Link](https://forums.alliedmods.net/showthread.php?p=2534328) or [GitHub Link](https://github.com/bloodgit/TF2-Dodgeball)
 3. Dodgeball Redux by ClassicGuzzi : [AlliedMods Link](https://forums.alliedmods.net/showthread.php?p=2226728) or [GitHub Link](https://github.com/ClassicSpeed/dodgeball)
-4. friagram for the flag airblast prevention : [AlliedMods Link](https://forums.alliedmods.net/showthread.php?t=219056)
-5. BloodyNightmare and Mitchell for the original airblast prevention plugin : [AlliedMods Link](https://forums.alliedmods.net/showthread.php?t=233475)
-6. Syntax converter batch by Dragokas : [AlliedMods Link](https://forums.alliedmods.net/showpost.php?p=2593268&postcount=54)
+4. BloodyNightmare and Mitchell for the original airblast prevention plugin : [AlliedMods Link](https://forums.alliedmods.net/showthread.php?t=233475)
+5. Syntax converter batch by Dragokas : [AlliedMods Link](https://forums.alliedmods.net/showpost.php?p=2593268&postcount=54)
