@@ -22,7 +22,7 @@
 // ---- Plugin-related constants ---------------------------------------------------
 #define PLUGIN_NAME             "[TF2] Dodgeball"
 #define PLUGIN_AUTHOR           "Damizean, edited by x07x08 with features from YADBP 1.4.2 & Redux"
-#define PLUGIN_VERSION          "1.7.0"
+#define PLUGIN_VERSION          "1.7.1"
 #define PLUGIN_CONTACT          "https://github.com/x07x08/TF2-Dodgeball-Modified"
 
 // ---- Flags and types constants --------------------------------------------------
@@ -577,7 +577,7 @@ bool IsDodgeBallMap()
 ** -------------------------------------------------------------------------- */
 void EnableDodgeBall()
 {
-    if (g_bEnabled == false)
+    if (!g_bEnabled)
     {
         // Parse configuration files
         char strMapName[64]; GetCurrentMap(strMapName, sizeof(strMapName));
@@ -612,7 +612,7 @@ void EnableDodgeBall()
         PrecacheSound(SOUND_DEFAULT_BEEP, true);
         PrecacheSound(SOUND_DEFAULT_ALERT, true);
         PrecacheSound(SOUND_DEFAULT_SPEEDUP, true);
-        if (g_bMusicEnabled == true)
+        if (g_bMusicEnabled)
         {
             if (g_bMusic[Music_RoundStart]) PrecacheSoundEx(g_strMusic[Music_RoundStart], true, true);
             if (g_bMusic[Music_RoundWin])   PrecacheSoundEx(g_strMusic[Music_RoundWin], true, true);
@@ -657,7 +657,7 @@ void EnableDodgeBall()
 ** -------------------------------------------------------------------------- */
 void DisableDodgeBall()
 {
-    if (g_bEnabled == true)
+    if (g_bEnabled)
     {
         // Clean up everything
         DestroyRockets();
@@ -668,8 +668,8 @@ void DisableDodgeBall()
         
         // Disable music
         g_bMusic[Music_RoundStart] =
-        g_bMusic[Music_RoundWin]   = 
-        g_bMusic[Music_RoundLose]  = 
+        g_bMusic[Music_RoundWin]   =
+        g_bMusic[Music_RoundLose]  =
         g_bMusic[Music_Gameplay]   = false;
         
         // Unhook events and info_target outputs;
@@ -746,8 +746,8 @@ public void OnRoundStart(Event hEvent, char[] strEventName, bool bDontBroadcast)
 ** Dodgeball game logic timer.
 ** -------------------------------------------------------------------------- */
 public void OnSetupFinished(Event hEvent, char[] strEventName, bool bDontBroadcast)
-{   
-    if ((g_bEnabled == true) && (BothTeamsPlaying() == true))
+{
+    if (g_bEnabled && BothTeamsPlaying())
     {
         PopulateSpawnPoints();
         
@@ -778,13 +778,13 @@ public void OnRoundEnd(Event hEvent, char[] strEventName, bool bDontBroadcast)
         g_hLogicTimer = null;
     }
     
-    if (g_bMusicEnabled == true)
+    if (g_bMusicEnabled)
     {
         if (g_bUseWebPlayer)
         {
             for (int iClient = 1; iClient <= MaxClients; iClient++)
             {
-                if (IsValidClient(iClient))
+                if (IsValidClientEx(iClient))
                 {
                     ShowHiddenMOTDPanel(iClient, "MusicPlayerStop", "http://0.0.0.0/");
                 }
@@ -824,7 +824,7 @@ public void OnPlayerSpawn(Event hEvent, char[] strEventName, bool bDontBroadcast
 ** -------------------------------------------------------------------------- */
 public void OnPlayerDeath(Event hEvent, char[] strEventName, bool bDontBroadcast)
 {
-    if (g_bRoundStarted == false) return;
+    if (!g_bRoundStarted) return;
     int iAttacker = GetClientOfUserId(hEvent.GetInt("attacker"));
     int iVictim = GetClientOfUserId(hEvent.GetInt("userid"));
     
@@ -883,7 +883,7 @@ public void OnPlayerInventory(Event hEvent, char[] strEventName, bool bDontBroad
 ** -------------------------------------------------------------------------- */
 public Action OnPlayerRunCmd(int iClient, int &iButtons, int &iImpulse, float fVelocity[3], float fAngles[3], int &iWeapon)
 {
-    if (g_bEnabled == true) iButtons &= ~IN_ATTACK;
+    if (g_bEnabled) iButtons &= ~IN_ATTACK;
     return Plugin_Continue;
 }
 
@@ -893,15 +893,15 @@ public Action OnPlayerRunCmd(int iClient, int &iButtons, int &iImpulse, float fV
 ** -------------------------------------------------------------------------- */
 public Action OnBroadcastAudio(Event hEvent, char[] strEventName, bool bDontBroadcast)
 {
-    if (g_bMusicEnabled == true)
+    if (g_bMusicEnabled)
     {
         char strSound[PLATFORM_MAX_PATH];
         hEvent.GetString("sound", strSound, sizeof(strSound));
         int iTeam = hEvent.GetInt("team");
         
-        if (StrEqual(strSound, "Announcer.AM_RoundStartRandom") == true)
+        if (StrEqual(strSound, "Announcer.AM_RoundStartRandom"))
         {
-            if (g_bUseWebPlayer == false)
+            if (!g_bUseWebPlayer)
             {
                 if (g_bMusic[Music_Gameplay])
                 {
@@ -912,29 +912,29 @@ public Action OnBroadcastAudio(Event hEvent, char[] strEventName, bool bDontBroa
             else
             {
                 for (int iClient = 1; iClient <= MaxClients; iClient++)
-                    if (IsValidClient(iClient))
+                    if (IsValidClientEx(iClient))
                         ShowHiddenMOTDPanel(iClient, "MusicPlayerStart", g_strWebPlayerUrl);
                     
                 return Plugin_Handled;
             }
         }
-        else if (StrEqual(strSound, "Game.YourTeamWon") == true)
+        else if (StrEqual(strSound, "Game.YourTeamWon"))
         {
             if (g_bMusic[Music_RoundWin])
             {
                 for (int iClient = 1; iClient <= MaxClients; iClient++)
-                    if (IsValidClient(iClient) && (iTeam == GetClientTeam(iClient)))
+                    if (IsValidClientEx(iClient) && (iTeam == GetClientTeam(iClient)))
                         EmitSoundToClient(iClient, g_strMusic[Music_RoundWin]);
                     
                 return Plugin_Handled;
             }
         }
-        else if (StrEqual(strSound, "Game.YourTeamLost") == true)
+        else if (StrEqual(strSound, "Game.YourTeamLost"))
         {
             if (g_bMusic[Music_RoundLose])
             {
                 for (int iClient = 1; iClient <= MaxClients; iClient++)
-                    if (IsValidClient(iClient) && (iTeam == GetClientTeam(iClient)))
+                    if (IsValidClientEx(iClient) && (iTeam == GetClientTeam(iClient)))
                         EmitSoundToClient(iClient, g_strMusic[Music_RoundLose]);
                     
                 return Plugin_Handled;
@@ -995,7 +995,7 @@ public void OnObjectDeflected(Event hEvent, char[] strEventName, bool bDontBroad
 
 public void OnGameFrame()
 {
-    if ((BothTeamsPlaying() == false) || !g_bEnabled) return;
+    if (!g_bEnabled || !g_bRoundStarted) return;
     
     int iIndex = -1;
     while ((iIndex = FindNextValidRocket(iIndex)) != -1)
@@ -1015,7 +1015,7 @@ public void OnGameFrame()
 public Action OnDodgeBallGameFrame(Handle hTimer, any Data)
 {
     // Only if both teams are playing
-    if (BothTeamsPlaying() == false) return Plugin_Continue;
+    if (!g_bRoundStarted) return Plugin_Continue;
     
     // Check if we need to fire more rockets.
     if (GetGameTime() >= g_fNextSpawnTime)
@@ -1082,12 +1082,12 @@ void CreateRocket(int iSpawnerEntity, int iSpawnerClass, int iTeam, int iClass =
         
         if (aResult == Plugin_Stop || aResult == Plugin_Handled)
         {
-        	return;
+            return;
         }
         else if (aResult == Plugin_Changed)
         {
-        	iClass = iClassRef;
-        	iFlags = iFlagsRef;
+            iClass = iClassRef;
+            iFlags = iFlagsRef;
         }
         
         // Create rocket entity.
@@ -1359,7 +1359,7 @@ public Action SpriteSetTransmit(int iEntity, int iClient)
 ** -------------------------------------------------------------------------- */
 void DestroyRocket(int iIndex)
 {
-    if (IsValidRocket(iIndex) == true)
+    if (IsValidRocket(iIndex))
     {
         int iEntity = EntRefToEntIndex(g_iRocketEntity[iIndex]);
         if (iEntity && IsValidEntity(iEntity)) RemoveEdict(iEntity);
@@ -1387,7 +1387,7 @@ void DestroyRockets()
 ** -------------------------------------------------------------------------- */
 bool IsValidRocket(int iIndex)
 {
-    if ((iIndex >= 0) && (g_bRocketIsValid[iIndex] == true))
+    if ((iIndex >= 0) && g_bRocketIsValid[iIndex])
     {
         if (EntRefToEntIndex(g_iRocketEntity[iIndex]) == -1)
         {
@@ -1410,7 +1410,7 @@ int FindNextValidRocket(int iIndex, bool bWrap = false)
         if (IsValidRocket(iCurrent))
             return iCurrent;
         
-    return (bWrap == true)? FindNextValidRocket(-1, false) : -1;
+    return bWrap ? FindNextValidRocket(-1, false) : -1;
 }
 
 /* FindFreeRocketSlot()
@@ -1739,7 +1739,7 @@ void RocketLegacyThink(int iIndex)
         SetEntDataFloat(iEntity, FindSendPropInfo("CTFProjectile_Rocket", "m_iDeflected") + 4, CalculateRocketDamage(iClass, fModifier), true);
         if (TestFlags(iFlags, RocketFlag_ElevateOnDeflect)) g_iRocketFlags[iIndex] |= RocketFlag_Elevating;
         
-        if((iFlags & RocketFlag_IsSpeedLimited) && (g_fRocketSpeed[iIndex] >= g_fRocketClassSpeedLimit[iClass]))
+        if ((iFlags & RocketFlag_IsSpeedLimited) && (g_fRocketSpeed[iIndex] >= g_fRocketClassSpeedLimit[iClass]))
         {
             g_fRocketSpeed[iIndex] = g_fRocketClassSpeedLimit[iClass];
         }
@@ -1801,7 +1801,7 @@ void RocketLegacyThink(int iIndex)
                 }
             }
             
-            if((g_iRocketFlags[iIndex] & RocketFlag_IsTRLimited) && (fTurnRate >= g_fRocketClassTurnRateLimit[iClass]))
+            if ((g_iRocketFlags[iIndex] & RocketFlag_IsTRLimited) && (fTurnRate >= g_fRocketClassTurnRateLimit[iClass]))
             {
                 fTurnRate = g_fRocketClassTurnRateLimit[iClass];
             }
@@ -1899,8 +1899,8 @@ void ApplyRocketParameters(int iIndex)
 ** -------------------------------------------------------------------------- */
 void UpdateRocketSkin(int iEntity, int iTeam, bool bNeutral)
 {
-    if (bNeutral == true) SetEntProp(iEntity, Prop_Send, "m_nSkin", 2);
-    else                  SetEntProp(iEntity, Prop_Send, "m_nSkin", (iTeam == view_as<int>(TFTeam_Blue))? 0 : 1);
+    if (bNeutral) SetEntProp(iEntity, Prop_Send, "m_nSkin", 2);
+    else          SetEntProp(iEntity, Prop_Send, "m_nSkin", (iTeam == view_as<int>(TFTeam_Blue))? 0 : 1);
 }
 
 /* GetRandomRocketClass()
@@ -2074,7 +2074,7 @@ int FindSpawnerByName(char strName[32])
     int iIndex = -1;
     g_hSpawnersTrie.GetValue(strName, iIndex);
     return iIndex;
-}        
+}
 
 
 /*
@@ -2156,7 +2156,7 @@ public Action CmdShockwave(int iArgs)
             
             for (iClient = 1; iClient <= MaxClients; iClient++)
             {
-                if ((IsValidClient(iClient, true) == true) && (GetClientTeam(iClient) == iTeam))
+                if (IsValidClientEx(iClient, true) && (GetClientTeam(iClient) == iTeam))
                 {
                     float fPlayerPosition[3]; GetClientEyePosition(iClient, fPlayerPosition);
                     float fDistanceToShockwave = GetVectorDistance(fPosition, fPlayerPosition);
@@ -2296,7 +2296,7 @@ void ParseConfigurations(char[] strConfigFile = "general.cfg")
     if (FileExists(strPath, true))
     {
         KeyValues kvConfig = new KeyValues("TF2_Dodgeball");
-        if (kvConfig.ImportFromFile(strPath) == false) SetFailState("Error while parsing the configuration file.");
+        if (!kvConfig.ImportFromFile(strPath)) SetFailState("Error while parsing the configuration file.");
         kvConfig.GotoFirstSubKey();
         
         // Parse the subsections
@@ -2323,7 +2323,7 @@ void ParseConfigurations(char[] strConfigFile = "general.cfg")
 void ParseGeneral(KeyValues kvConfig)
 {
     g_bMusicEnabled = view_as<bool>(kvConfig.GetNum("music", 0));
-    if (g_bMusicEnabled == true)
+    if (g_bMusicEnabled)
     {
         g_bUseWebPlayer = view_as<bool>(kvConfig.GetNum("use web player", 0));
         kvConfig.GetString("web player url", g_strWebPlayerUrl, sizeof(g_strWebPlayerUrl));
@@ -2544,7 +2544,7 @@ void ParseSpawners(KeyValues kvConfig)
 DataPack ParseCommands(char[] strLine)
 {
     TrimString(strLine);
-    if (strlen(strLine) == 0)
+    if (!strLine[0])
     {
         return null;
     }
@@ -2607,15 +2607,19 @@ stock void LerpVectors(float fA[3], float fB[3], float fC[3], float t)
 ** -------------------------------------------------------------------------- */
 stock bool IsValidClient(int iClient, bool bAlive = false)
 {
-    if (iClient >= 1 &&
-    iClient <= MaxClients &&
-    IsClientInGame(iClient) &&
-    (bAlive == false || IsPlayerAlive(iClient)))
-    {
-        return true;
-    }
-    
-    return false;
+	return iClient >= 1 &&
+	       iClient <= MaxClients &&
+	       IsClientInGame(iClient) &&
+	       (!bAlive || IsPlayerAlive(iClient));
+}
+
+/* IsValidClientEx()
+**
+** IsValidClient() but doesn't check the index range.
+** -------------------------------------------------------------------------- */
+stock bool IsValidClientEx(int iClient, bool bAlive = false)
+{
+	return IsClientInGame(iClient) && (!bAlive || IsPlayerAlive(iClient));
 }
 
 /* BothTeamsPlaying()
@@ -2627,7 +2631,7 @@ stock bool BothTeamsPlaying()
     bool bRedFound, bBluFound;
     for (int iClient = 1; iClient <= MaxClients; iClient++)
     {
-        if (IsValidClient(iClient, true) == false) continue;
+        if (!IsValidClientEx(iClient, true)) continue;
         int iTeam = GetClientTeam(iClient);
         if (iTeam == view_as<int>(TFTeam_Red)) bRedFound = true;
         if (iTeam == view_as<int>(TFTeam_Blue)) bBluFound = true;
@@ -2644,7 +2648,7 @@ stock int CountAlivePlayers()
     int iCount = 0;
     for (int iClient = 1; iClient <= MaxClients; iClient++)
     {
-        if (IsValidClient(iClient, true)) iCount++;
+        if (IsValidClientEx(iClient, true)) iCount++;
     }
     return iCount;
 }
@@ -2679,14 +2683,14 @@ stock int SelectTarget(int iTeam, int iRocket = -1)
     for (int iClient = 1; iClient <= MaxClients; iClient++)
     {
         // If the client isn't connected, skip.
-        if (!IsValidClient(iClient, true)) continue;
+        if (!IsValidClientEx(iClient, true)) continue;
         if (iTeam && GetClientTeam(iClient) != iTeam) continue;
         if (iClient == iOwner) continue;
         
         // Determine if this client should be the target.
         float fNewWeight = GetURandomFloatRange(0.0, 100.0);
         
-        if (bUseRocket == true)
+        if (bUseRocket)
         {
             float fClientPosition[3]; GetClientEyePosition(iClient, fClientPosition);
             float fDirectionToClient[3]; MakeVectorFromPoints(fRocketPosition, fClientPosition, fDirectionToClient);
@@ -2711,7 +2715,7 @@ stock void StopSoundToAll(int iChannel, const char[] strSound)
 {
     for (int iClient = 1; iClient <= MaxClients; iClient++)
     {
-        if (IsValidClient(iClient)) StopSound(iClient, iChannel, strSound);
+        if (IsValidClientEx(iClient)) StopSound(iClient, iChannel, strSound);
     }
 }
 
@@ -2829,7 +2833,7 @@ stock void PrecacheSoundEx(char[] strFileName, bool bPreload = false, bool bAddT
     char strFinalPath[PLATFORM_MAX_PATH]; 
     FormatEx(strFinalPath, sizeof(strFinalPath), "sound/%s", strFileName);
     PrecacheSound(strFileName, bPreload);
-    if (bAddToDownloadTable == true) AddFileToDownloadsTable(strFinalPath);
+    if (bAddToDownloadTable) AddFileToDownloadsTable(strFinalPath);
 }
 
 /* PrecacheModelEx()
@@ -2883,7 +2887,7 @@ stock void CleanString(char[] strBuffer)
     int Length = strlen(strBuffer);
     for (int iPos=0; iPos<Length; iPos++)
     {
-        switch(strBuffer[iPos])
+        switch (strBuffer[iPos])
         {
             case '\r': strBuffer[iPos] = ' ';
             case '\n': strBuffer[iPos] = ' ';
@@ -3053,7 +3057,7 @@ public Action OnTouch(int iEntity, int iOther)
 		
 		Handle hTrace = TR_TraceRayFilterEx(vOrigin, vAngles, MASK_SHOT, RayType_Infinite, TEF_ExcludeEntity, iEntity);
 		
-		if(!TR_DidHit(hTrace))
+		if (!TR_DidHit(hTrace))
 		{
 			delete hTrace;
 			return Plugin_Continue;

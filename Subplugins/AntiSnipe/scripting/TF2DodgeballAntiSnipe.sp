@@ -2,7 +2,7 @@
 #pragma newdecls required
 
 #define PLUGIN_AUTHOR "x07x08"
-#define PLUGIN_VERSION "1.1.0"
+#define PLUGIN_VERSION "1.1.1"
 
 #include <sourcemod>
 #include <sdkhooks>
@@ -192,11 +192,13 @@ void ToggleClientsCollision()
 		return;
 	}
 	
-	bool bIsTarget[MAXPLAYERS + 1];
+	bool[] bIsTarget = new bool[MaxClients + 1];
 	int iRocketTarget = -1;
 	
-	for (int iRocketIndex = 0; iRocketIndex < TFDB_GetRocketCount(); iRocketIndex++)
+	for (int iRocketIndex = 0; iRocketIndex < MAX_ROCKETS; iRocketIndex++)
 	{
+		if (!TFDB_IsValidRocket(iRocketIndex)) continue;
+		
 		iRocketTarget = EntRefToEntIndex(TFDB_GetRocketTarget(iRocketIndex));
 		if (IsValidClient(iRocketTarget, true))
 		{
@@ -206,7 +208,7 @@ void ToggleClientsCollision()
 	
 	for (int iClient = 1; iClient <= MaxClients; iClient++)
 	{
-		if (IsValidClient(iClient, true))
+		if (IsClientInGame(iClient) && IsPlayerAlive(iClient))
 		{
 			if (bIsTarget[iClient])
 			{
@@ -238,13 +240,8 @@ void ToggleClientsCollision()
 
 stock bool IsValidClient(int iClient, bool bAlive = false)
 {
-    if (iClient >= 1 &&
-    iClient <= MaxClients &&
-    IsClientInGame(iClient) &&
-    (bAlive == false || IsPlayerAlive(iClient)))
-    {
-        return true;
-    }
-    
-    return false;
+	return iClient >= 1 &&
+	       iClient <= MaxClients &&
+	       IsClientInGame(iClient) &&
+	       (!bAlive || IsPlayerAlive(iClient));
 }

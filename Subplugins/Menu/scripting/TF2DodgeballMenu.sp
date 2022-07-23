@@ -11,7 +11,7 @@
 #define PLUGIN_NAME        "[TFDB] Admin menu"
 #define PLUGIN_AUTHOR      "x07x08"
 #define PLUGIN_DESCRIPTION "A pretty big menu for dodgeball"
-#define PLUGIN_VERSION     "1.0.0"
+#define PLUGIN_VERSION     "1.0.1"
 #define PLUGIN_URL         "https://github.com/x07x08/TF2-Dodgeball-Modified"
 
 enum RocketClassMenu
@@ -212,6 +212,15 @@ public void OnPluginStart()
 	RegAdminCmd("sm_tfdb", CmdDodgeballMenu, ADMFLAG_CONFIG, "Dodgeball admin menu.");
 	
 	g_hCvarSayHookTimeout = CreateConVar("tf_dodgeball_sayhook_timeout", "15.0", "Chat hook time span", _, true, 0.0);
+	
+	if (TFDB_IsDodgeballEnabled())
+	{
+		char strMapName[64]; GetCurrentMap(strMapName, sizeof(strMapName));
+		char strMapFile[PLATFORM_MAX_PATH]; FormatEx(strMapFile, sizeof(strMapFile), "%s.cfg", strMapName);
+		
+		TFDB_OnRocketsConfigExecuted("general.cfg");
+		TFDB_OnRocketsConfigExecuted(strMapFile);
+	}
 }
 
 public void OnMapEnd()
@@ -356,9 +365,7 @@ public int DodgeballMenuHandler(Menu hMenu, MenuAction iMenuActions, int iParam1
 
 void DisplayRocketsMenu(int iClient)
 {
-	int iRocketsCount = TFDB_GetRocketCount();
-	
-	if (iRocketsCount == 0)
+	if (TFDB_GetRocketCount() == 0)
 	{
 		CPrintToChat(iClient, "%t", "Menu_NoRockets");
 		
@@ -374,8 +381,10 @@ void DisplayRocketsMenu(int iClient)
 	hMenu.SetTitle("Active rockets :");
 	hMenu.ExitBackButton = true;
 	
-	for (int iIndex = 0; iIndex < iRocketsCount; iIndex++)
+	for (int iIndex = 0; iIndex < MAX_ROCKETS; iIndex++)
 	{
+		if (!TFDB_IsValidRocket(iIndex)) continue;
+		
 		IntToString(iIndex, strRocketIndex, sizeof(strRocketIndex));
 		TFDB_GetRocketClassLongName(TFDB_GetRocketClass(iIndex), strRocketLongName, sizeof(strRocketLongName));
 		Format(strRocketLongName, sizeof(strRocketLongName), "%s (Index : %s)", strRocketLongName, strRocketIndex);

@@ -88,11 +88,27 @@
 	// {1} - MpH speed (Miles per Hour)
 	// {2} - HU speed (Hammer Units)
 	// {3} - Deflections
+	// {4} - Index
+	// {5} - Rocket class long name
 	
 	"Hud_Speedometer"
 	{
-		"#format"	"{1:.0f},{2:.0f},{3:i}"
+		"#format"	"{1:.0f},{2:.0f},{3:i},{4:i},{5:s}"
 		"en"	 	"Speed : {1} MpH"
+	}
+	
+	// {1} - MpH speed (Miles per Hour)
+	// {2} - HU speed (Hammer Units)
+	// {3} - Deflections
+	// {4} - Index
+	// {5} - Rocket class long name
+	
+	// This one is for displaying multiple rockets
+	
+	"Hud_SpeedometerEx"
+	{
+		"#format"	"{1:.0f},{2:.0f},{3:i},{4:i},{5:s}"
+		"en"	 	"{4}. {5} : {1} MpH"
 	}
 	
 	"Menu_NoRockets"
