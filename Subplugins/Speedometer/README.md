@@ -9,6 +9,4 @@ This is a small HUD that shows the speed (and deflections) of a rocket. Visibili
 
 # Notes
 
-Only the last deflected and created rockets are shown. Multiple rockets will conflict with eachother.
-
 To further customize the hud, check the `Hud_Speedometer` phrase inside `tfdb.phrases.txt`.
