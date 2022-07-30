@@ -22,7 +22,7 @@
 // ---- Plugin-related constants ---------------------------------------------------
 #define PLUGIN_NAME             "[TF2] Dodgeball"
 #define PLUGIN_AUTHOR           "Damizean, edited by x07x08 with features from YADBP 1.4.2 & Redux"
-#define PLUGIN_VERSION          "1.7.1"
+#define PLUGIN_VERSION          "1.7.2"
 #define PLUGIN_CONTACT          "https://github.com/x07x08/TF2-Dodgeball-Modified"
 
 // ---- Flags and types constants --------------------------------------------------
@@ -68,7 +68,7 @@ bool   g_bRoundStarted;           // Has the round started?
 int    g_iRoundCount;             // Current round count since map start
 int    g_iRocketsFired;           // No. of rockets fired since round start
 Handle g_hLogicTimer;             // Logic timer
-float  g_fNextSpawnTime;          // Time at wich the next rocket will be able to spawn
+float  g_fNextSpawnTime;          // Time at which the next rocket will be able to spawn
 int    g_iLastDeadTeam;           // The team of the last dead client. If none, it's a random team.
 int    g_iLastDeadClient;         // The last dead client. If none, it's a random client.
 int    g_iPlayerCount;
@@ -537,7 +537,7 @@ public void OnConfigsExecuted()
 
 /* OnMapEnd()
 **
-** When the map ends, disable DodgeBall.
+** When the map ends, disable Dodgeball.
 ** -------------------------------------------------------------------------- */
 public void OnMapEnd()
 {
@@ -605,7 +605,7 @@ void EnableDodgeBall()
         PrecacheParticleSystem("rockettrail_fire"); // Why isn't this particle already precached?
         
         AddMultiTargetFilter("@stealer", MLTargetFilterStealer, "last stealer", false);
-        AddMultiTargetFilter("@!stealer", MLTargetFilterStealer, "non last stealer", false); // Sounds weird not gonna lie
+        AddMultiTargetFilter("@!stealer", MLTargetFilterStealer, "non last stealer", false);
         
         // Precache sounds
         PrecacheSound(SOUND_DEFAULT_SPAWN, true);
@@ -672,7 +672,7 @@ void DisableDodgeBall()
         g_bMusic[Music_RoundLose]  =
         g_bMusic[Music_Gameplay]   = false;
         
-        // Unhook events and info_target outputs;
+        // Unhook events and info_target outputs
         UnhookEvent("teamplay_round_start", OnRoundStart, EventHookMode_PostNoCopy);
         UnhookEvent("arena_round_start", OnSetupFinished, EventHookMode_PostNoCopy);
         UnhookEvent("teamplay_round_win", OnRoundEnd, EventHookMode_PostNoCopy);
@@ -954,6 +954,20 @@ public void OnObjectDeflected(Event hEvent, char[] strEventName, bool bDontBroad
 	{
 		g_iRocketEventDeflections[iIndex]++;
 		
+		int iLauncher = GetEntPropEnt(iEntity, Prop_Send, "m_hLauncher");
+		
+		if (iLauncher != -1)
+		{
+			// Killstreaks are counted only for the original launcher of the projectile.
+			SetEntPropEnt(iEntity, Prop_Send, "m_hOriginalLauncher", iLauncher);
+		}
+		
+		if (g_iRocketState[iIndex] & RocketState_Delayed)
+		{
+			Internal_SetRocketState(iIndex, (g_iRocketState[iIndex] & ~RocketState_Delayed));
+			g_fRocketSpeed[iIndex] = CalculateRocketSpeed(g_iRocketClass[iIndex], CalculateModifier(g_iRocketClass[iIndex], g_iRocketDeflections[iIndex]));
+		}
+		
 		if (g_iRocketFlags[iIndex] & RocketFlag_ResetBounces)
 		{
 			g_iRocketBounces[iIndex] = 0;
@@ -1002,8 +1016,8 @@ public void OnGameFrame()
     {
         switch (g_iRocketClassBehaviour[g_iRocketClass[iIndex]])
         {
-            case Behaviour_Unknown: {}
-            case Behaviour_Homing:  { HomingRocketThink(iIndex); }
+            case Behaviour_Unknown : {}
+            case Behaviour_Homing :  { HomingRocketThink(iIndex); }
         }
     }
 }
@@ -1048,9 +1062,9 @@ public Action OnDodgeBallGameFrame(Handle hTimer, any Data)
     {
         switch (g_iRocketClassBehaviour[g_iRocketClass[iIndex]])
         {
-            case Behaviour_Unknown:      {}
-            case Behaviour_Homing:       { RocketOtherThink(iIndex); }
-            case Behaviour_LegacyHoming: { RocketLegacyThink(iIndex); }
+            case Behaviour_Unknown :      {}
+            case Behaviour_Homing :       { RocketOtherThink(iIndex); }
+            case Behaviour_LegacyHoming : { RocketLegacyThink(iIndex); }
         }
     }
     
@@ -1071,7 +1085,7 @@ void CreateRocket(int iSpawnerEntity, int iSpawnerClass, int iTeam, int iClass =
     int iIndex = FindFreeRocketSlot();
     if (iIndex != -1)
     {
-        // Fetch a random rocket class and it's parameters.
+        // Fetch a random rocket class and its parameters.
         iClass = iClass == -1 ? GetRandomRocketClass(iSpawnerClass) : iClass;
         RocketFlags iFlags = g_iRocketClassFlags[iClass];
         
@@ -1091,7 +1105,7 @@ void CreateRocket(int iSpawnerEntity, int iSpawnerClass, int iTeam, int iClass =
         }
         
         // Create rocket entity.
-        int iEntity = CreateEntityByName(TestFlags(iFlags, RocketFlag_IsAnimated)? "tf_projectile_sentryrocket" : "tf_projectile_rocket");
+        int iEntity = CreateEntityByName(TestFlags(iFlags, RocketFlag_IsAnimated) ? "tf_projectile_sentryrocket" : "tf_projectile_rocket");
         if (iEntity && IsValidEntity(iEntity))
         {
             // Fetch spawn point's location and angles.
@@ -1101,19 +1115,18 @@ void CreateRocket(int iSpawnerEntity, int iSpawnerClass, int iTeam, int iClass =
             GetAngleVectors(fAngles, fDirection, NULL_VECTOR, NULL_VECTOR);
             
             // Setup rocket entity.
-            SetEntProp(iEntity,    Prop_Send, "m_bCritical",    (GetURandomFloatRange(0.0, 100.0) <= g_fRocketClassCritChance[iClass])? 1 : 0, 1);
-            SetEntProp(iEntity,    Prop_Send, "m_iTeamNum",     (TestFlags(iFlags, RocketFlag_IsNeutral))? 1 : iTeam, 1);
+            SetEntProp(iEntity,    Prop_Send, "m_bCritical",    (GetURandomFloatRange(0.0, 100.0) <= g_fRocketClassCritChance[iClass]) ? 1 : 0, 1);
+            SetEntProp(iEntity,    Prop_Send, "m_iTeamNum",     (TestFlags(iFlags, RocketFlag_IsNeutral)) ? 1 : iTeam, 1);
             SetEntProp(iEntity,    Prop_Send, "m_iDeflected",   0);
             TeleportEntity(iEntity, fPosition, fAngles, view_as<float>({0.0, 0.0, 0.0}));
             
             // Setup rocket structure with the newly created entity.
-            int iTargetTeam = (TestFlags(iFlags, RocketFlag_IsNeutral))? 0 : GetAnalogueTeam(iTeam);
+            int iTargetTeam = (TestFlags(iFlags, RocketFlag_IsNeutral)) ? 0 : GetAnalogueTeam(iTeam);
             int iTarget     = SelectTarget(iTargetTeam);
             
             // In order for the object_deflected event to fire, the old (previous) owner must be a valid client
             // I'm doing this as I don't want the first object_deflected event to be skipped
-            int iTeamRocketTarget = GetClientTeam(iTarget);
-            int iRocketOwner      = SelectTarget(GetAnalogueTeam(iTeamRocketTarget));
+            int iRocketOwner = SelectTarget(GetAnalogueTeam(GetClientTeam(iTarget)));
             SetEntPropEnt(iEntity, Prop_Send, "m_hOwnerEntity", iRocketOwner);
             
             int iWeapon = GetPlayerWeaponSlot(iRocketOwner, TFWeaponSlot_Primary);
@@ -1445,9 +1458,9 @@ int FindRocketByEntity(int iEntity)
     return -1;
 }
 
-/* HomingRocketThinkg()
+/* HomingRocketThink()
 **
-** Logic process for the Behaviour_Homing type rockets, wich is simply a
+** Logic process for the Behaviour_Homing type rockets, which is simply a
 ** follower rocket, picking a random target.
 ** -------------------------------------------------------------------------- */
 void HomingRocketThink(int iIndex)
@@ -1458,14 +1471,14 @@ void HomingRocketThink(int iIndex)
     RocketFlags iFlags   = g_iRocketFlags[iIndex];
     int iTarget          = EntRefToEntIndex(g_iRocketTarget[iIndex]);
     int iTeam            = GetEntProp(iEntity, Prop_Send, "m_iTeamNum", 1);
-    int iTargetTeam      = (TestFlags(iFlags, RocketFlag_IsNeutral))? 0 : GetAnalogueTeam(iTeam);
+    int iTargetTeam      = (TestFlags(iFlags, RocketFlag_IsNeutral)) ? 0 : GetAnalogueTeam(iTeam);
     int iDeflectionCount = g_iRocketEventDeflections[iIndex];
     float fModifier      = CalculateModifier(iClass, iDeflectionCount);
     
     if ((iDeflectionCount > g_iRocketDeflections[iIndex]) && !(g_iRocketState[iIndex] & RocketState_Dragging))
     {
         int iClient = GetEntPropEnt(iEntity, Prop_Send, "m_hOwnerEntity");
-        Internal_SetRocketState(iIndex, (g_iRocketState[iIndex] | RocketState_CanDrag));
+        Internal_SetRocketState(iIndex, (g_iRocketState[iIndex] | (RocketState_CanDrag | RocketState_Dragging)));
         if (IsValidClient(iClient))
         {
             float fViewAngles[3], fDirection[3];
@@ -1483,8 +1496,7 @@ void HomingRocketThink(int iIndex)
                 }
             }
         }
-        // Set new deflection count
-        Internal_SetRocketState(iIndex, (g_iRocketState[iIndex] | RocketState_Dragging));
+        
         g_fRocketLastDeflectionTime[iIndex] = GetGameTime();
     }
     else
@@ -1516,9 +1528,7 @@ void HomingRocketThink(int iIndex)
                 
                 if (TestFlags(iFlags, RocketFlag_OnNoTargetCmd))
                 {
-                    int iClient = iOwner;
-                    
-                    ExecuteCommands(g_hRocketClassCmdsOnNoTarget[iClass], iClass, iEntity, iClient, iTarget, g_iLastDeadClient, g_fRocketSpeed[iIndex], iDeflectionCount, g_fRocketMphSpeed[iIndex]);
+                    ExecuteCommands(g_hRocketClassCmdsOnNoTarget[iClass], iClass, iEntity, iOwner, iTarget, g_iLastDeadClient, g_fRocketSpeed[iIndex], iDeflectionCount, g_fRocketMphSpeed[iIndex]);
                 }
                 
                 if (g_hCvarNoTargetRedirectDamage.BoolValue)
@@ -1533,8 +1543,7 @@ void HomingRocketThink(int iIndex)
             {
                 // Calculate new direction from the player's forward
                 int iClient = GetEntPropEnt(iEntity, Prop_Send, "m_hOwnerEntity");
-                Internal_SetRocketState(iIndex, (g_iRocketState[iIndex] & ~RocketState_Dragging));
-                Internal_SetRocketState(iIndex, (g_iRocketState[iIndex] & ~RocketState_Stolen));
+                Internal_SetRocketState(iIndex, (g_iRocketState[iIndex] & ~(RocketState_Dragging | RocketState_Stolen)));
                 
                 if (IsValidClient(iClient) && !(iFlags & RocketFlag_CanBeStolen))
                 {
@@ -1547,8 +1556,8 @@ void HomingRocketThink(int iIndex)
                 g_iRocketDeflections[iIndex] = iDeflectionCount;
                 g_fRocketSpeed[iIndex]       = CalculateRocketSpeed(iClass, fModifier);
                 g_fRocketMphSpeed[iIndex]    = CalculateRocketSpeed(iClass, fModifier) * 0.042614;
-                Internal_SetRocketState(iIndex, (g_iRocketState[iIndex] & ~RocketState_Delayed));
                 SetEntDataFloat(iEntity, FindSendPropInfo("CTFProjectile_Rocket", "m_iDeflected") + 4, CalculateRocketDamage(iClass, fModifier), true);
+                
                 if (TestFlags(iFlags, RocketFlag_ElevateOnDeflect)) g_iRocketFlags[iIndex] |= RocketFlag_Elevating;
                 
                 if ((iFlags & RocketFlag_IsSpeedLimited) && (g_fRocketSpeed[iIndex] >= g_fRocketClassSpeedLimit[iClass]))
@@ -1649,7 +1658,7 @@ void RocketOtherThink(int iIndex)
             }
         }
         
-        // If it's a nuke, beep every some time
+        // Beep every some time
         if ((GetGameTime() - g_fRocketLastBeepTime[iIndex]) >= g_fRocketClassBeepInterval[iClass])
         {
             EmitRocketSound(RocketSound_Beep, iClass, iEntity, iTarget, iFlags);
@@ -1673,7 +1682,7 @@ void RocketLegacyThink(int iIndex)
     RocketFlags iFlags   = g_iRocketFlags[iIndex];
     int iTarget          = EntRefToEntIndex(g_iRocketTarget[iIndex]);
     int iTeam            = GetEntProp(iEntity, Prop_Send, "m_iTeamNum", 1);
-    int iTargetTeam      = (TestFlags(iFlags, RocketFlag_IsNeutral))? 0 : GetAnalogueTeam(iTeam);
+    int iTargetTeam      = (TestFlags(iFlags, RocketFlag_IsNeutral)) ? 0 : GetAnalogueTeam(iTeam);
     int iDeflectionCount = g_iRocketEventDeflections[iIndex];
     float fModifier      = CalculateModifier(iClass, iDeflectionCount);
     
@@ -1688,9 +1697,7 @@ void RocketLegacyThink(int iIndex)
         
         if (TestFlags(iFlags, RocketFlag_OnNoTargetCmd))
         {
-            int iClient = iOwner;
-            
-            ExecuteCommands(g_hRocketClassCmdsOnNoTarget[iClass], iClass, iEntity, iClient, iTarget, g_iLastDeadClient, g_fRocketSpeed[iIndex], iDeflectionCount, g_fRocketMphSpeed[iIndex]);
+            ExecuteCommands(g_hRocketClassCmdsOnNoTarget[iClass], iClass, iEntity, iOwner, iTarget, g_iLastDeadClient, g_fRocketSpeed[iIndex], iDeflectionCount, g_fRocketMphSpeed[iIndex]);
         }
         
         if (g_hCvarNoTargetRedirectDamage.BoolValue)
@@ -1706,6 +1713,7 @@ void RocketLegacyThink(int iIndex)
         // Calculate new direction from the player's forward
         int iClient = GetEntPropEnt(iEntity, Prop_Send, "m_hOwnerEntity");
         Internal_SetRocketState(iIndex, (g_iRocketState[iIndex] & ~RocketState_Stolen));
+        
         if (IsValidClient(iClient))
         {
             float fViewAngles[3], fDirection[3];
@@ -1713,6 +1721,7 @@ void RocketLegacyThink(int iIndex)
             GetAngleVectors(fViewAngles, fDirection, NULL_VECTOR, NULL_VECTOR);
             CopyVectors(fDirection, g_fRocketDirection[iIndex]);
             UpdateRocketSkin(iEntity, iTeam, TestFlags(iFlags, RocketFlag_IsNeutral));
+            
             if (!(iFlags & RocketFlag_CanBeStolen))
             {
                 CheckStolenRocket(iClient, iIndex);
@@ -1735,8 +1744,8 @@ void RocketLegacyThink(int iIndex)
         g_fRocketLastDeflectionTime[iIndex] = GetGameTime();
         g_fRocketSpeed[iIndex]              = CalculateRocketSpeed(iClass, fModifier);
         g_fRocketMphSpeed[iIndex]           = CalculateRocketSpeed(iClass, fModifier) * 0.042614;
-        Internal_SetRocketState(iIndex, (g_iRocketState[iIndex] & ~RocketState_Delayed));
         SetEntDataFloat(iEntity, FindSendPropInfo("CTFProjectile_Rocket", "m_iDeflected") + 4, CalculateRocketDamage(iClass, fModifier), true);
+        
         if (TestFlags(iFlags, RocketFlag_ElevateOnDeflect)) g_iRocketFlags[iIndex] |= RocketFlag_Elevating;
         
         if ((iFlags & RocketFlag_IsSpeedLimited) && (g_fRocketSpeed[iIndex] >= g_fRocketClassSpeedLimit[iClass]))
@@ -1810,7 +1819,7 @@ void RocketLegacyThink(int iIndex)
             LerpVectors(g_fRocketDirection[iIndex], fDirectionToTarget, g_fRocketDirection[iIndex], fTurnRate);
         }
         
-        // If it's a nuke, beep every some time
+        // Beep every some time
         if ((GetGameTime() - g_fRocketLastBeepTime[iIndex]) >= g_fRocketClassBeepInterval[iClass])
         {
             EmitRocketSound(RocketSound_Beep, iClass, iEntity, iTarget, iFlags);
@@ -1840,7 +1849,7 @@ float CalculateModifier(int iClass, int iDeflections)
 
 /* CalculateRocketDamage()
 **
-** Calculates the damage of the rocket based on it's type and deflection count.
+** Calculates the damage of the rocket based on its type and deflection count.
 ** -------------------------------------------------------------------------- */
 float CalculateRocketDamage(int iClass, float fModifier)
 {
@@ -1849,7 +1858,7 @@ float CalculateRocketDamage(int iClass, float fModifier)
 
 /* CalculateRocketSpeed()
 **
-** Calculates the speed of the rocket based on it's type and deflection count.
+** Calculates the speed of the rocket based on its type and deflection count.
 ** -------------------------------------------------------------------------- */
 float CalculateRocketSpeed(int iClass, float fModifier)
 {
@@ -1858,7 +1867,7 @@ float CalculateRocketSpeed(int iClass, float fModifier)
 
 /* CalculateRocketTurnRate()
 **
-** Calculates the rocket's turn rate based upon it's type and deflection count.
+** Calculates the rocket's turn rate based upon its type and deflection count.
 ** -------------------------------------------------------------------------- */
 float CalculateRocketTurnRate(int iClass, float fModifier)
 {
@@ -1895,12 +1904,12 @@ void ApplyRocketParameters(int iIndex)
 
 /* UpdateRocketSkin()
 **
-** Changes the skin of the rocket based on it's team.
+** Changes the skin of the rocket based on its team.
 ** -------------------------------------------------------------------------- */
 void UpdateRocketSkin(int iEntity, int iTeam, bool bNeutral)
 {
     if (bNeutral) SetEntProp(iEntity, Prop_Send, "m_nSkin", 2);
-    else          SetEntProp(iEntity, Prop_Send, "m_nSkin", (iTeam == view_as<int>(TFTeam_Blue))? 0 : 1);
+    else          SetEntProp(iEntity, Prop_Send, "m_nSkin", (iTeam == view_as<int>(TFTeam_Blue)) ? 0 : 1);
 }
 
 /* GetRandomRocketClass()
@@ -1937,7 +1946,7 @@ void EmitRocketSound(RocketSound iSound, int iClass, int iEntity, int iTarget, R
 {
     switch (iSound)
     {
-        case RocketSound_Spawn:
+        case RocketSound_Spawn :
         {
             if (TestFlags(iFlags, RocketFlag_PlaySpawnSound))
             {
@@ -1945,7 +1954,7 @@ void EmitRocketSound(RocketSound iSound, int iClass, int iEntity, int iTarget, R
                 else                                                EmitSoundToAll(SOUND_DEFAULT_SPAWN, iEntity);
             }
         }
-        case RocketSound_Beep:
+        case RocketSound_Beep :
         {
             if (TestFlags(iFlags, RocketFlag_PlayBeepSound))
             {
@@ -1953,7 +1962,7 @@ void EmitRocketSound(RocketSound iSound, int iClass, int iEntity, int iTarget, R
                 else                                               EmitSoundToAll(SOUND_DEFAULT_BEEP, iEntity);
             }
         }
-        case RocketSound_Alert:
+        case RocketSound_Alert :
         {
             if (TestFlags(iFlags, RocketFlag_PlayAlertSound))
             {
@@ -2067,7 +2076,7 @@ void PopulateSpawnPoints()
 
 /* FindSpawnerByName()
 **
-** Finds the first spawner wich contains the given name.
+** Finds the first spawner which contains the given name.
 ** -------------------------------------------------------------------------- */
 int FindSpawnerByName(char strName[32])
 {
@@ -2116,11 +2125,11 @@ public Action CmdExplosion(int iArgs)
             float fPosition[3]; GetClientAbsOrigin(iClient, fPosition);
             switch (GetURandomIntRange(0, 4))
             {
-                case 0: { PlayParticle(fPosition, PARTICLE_NUKE_1_ANGLES, PARTICLE_NUKE_1); }
-                case 1: { PlayParticle(fPosition, PARTICLE_NUKE_2_ANGLES, PARTICLE_NUKE_2); }
-                case 2: { PlayParticle(fPosition, PARTICLE_NUKE_3_ANGLES, PARTICLE_NUKE_3); }
-                case 3: { PlayParticle(fPosition, PARTICLE_NUKE_4_ANGLES, PARTICLE_NUKE_4); }
-                case 4: { PlayParticle(fPosition, PARTICLE_NUKE_5_ANGLES, PARTICLE_NUKE_5); }
+                case 0 : { PlayParticle(fPosition, PARTICLE_NUKE_1_ANGLES, PARTICLE_NUKE_1); }
+                case 1 : { PlayParticle(fPosition, PARTICLE_NUKE_2_ANGLES, PARTICLE_NUKE_2); }
+                case 2 : { PlayParticle(fPosition, PARTICLE_NUKE_3_ANGLES, PARTICLE_NUKE_3); }
+                case 3 : { PlayParticle(fPosition, PARTICLE_NUKE_4_ANGLES, PARTICLE_NUKE_4); }
+                case 4 : { PlayParticle(fPosition, PARTICLE_NUKE_5_ANGLES, PARTICLE_NUKE_5); }
             }
             PlayParticle(fPosition, PARTICLE_NUKE_COLLUMN_ANGLES, PARTICLE_NUKE_COLLUMN);
         }
@@ -2879,7 +2888,7 @@ stock void PrecacheModelEx(char[] strFileName, bool bPreload = false, bool bAddT
 
 /* CleanString()
 **
-** Cleans the given string from any illegal character.
+** Cleans the given string from any illegal characters.
 ** -------------------------------------------------------------------------- */
 stock void CleanString(char[] strBuffer)
 {
@@ -2889,9 +2898,9 @@ stock void CleanString(char[] strBuffer)
     {
         switch (strBuffer[iPos])
         {
-            case '\r': strBuffer[iPos] = ' ';
-            case '\n': strBuffer[iPos] = ' ';
-            case '\t': strBuffer[iPos] = ' ';
+            case '\r' : strBuffer[iPos] = ' ';
+            case '\n' : strBuffer[iPos] = ' ';
+            case '\t' : strBuffer[iPos] = ' ';
         }
     }
     
@@ -2905,7 +2914,7 @@ stock void CleanString(char[] strBuffer)
 ** -------------------------------------------------------------------------- */
 stock float FMax(float a, float b)
 {
-    return (a > b)? a:b;
+    return (a > b) ? a : b;
 }
 
 /* FMin()
@@ -2914,7 +2923,7 @@ stock float FMax(float a, float b)
 ** -------------------------------------------------------------------------- */
 stock float FMin(float a, float b)
 {
-    return (a < b)? a:b;
+    return (a < b) ? a : b;
 }
 
 /* GetURandomIntRange()
@@ -3140,28 +3149,22 @@ void CheckRoundDelays(int iIndex)
 {
 	int iEntity = EntRefToEntIndex(g_iRocketEntity[iIndex]);
 	int iTarget = EntRefToEntIndex(g_iRocketTarget[iIndex]);
-	float fTimeToCheck;
+	float fTimeToCheck = g_iRocketDeflections[iIndex] == 0 ? g_fLastSpawnTime[iIndex] : g_fRocketLastDeflectionTime[iIndex];
 	
-	if (g_iRocketDeflections[iIndex] == 0)
+	if (iTarget == -1 || (GetGameTime() - fTimeToCheck) < g_hCvarDelayPreventionTime.FloatValue) return;
+	
+	if (!(g_iRocketState[iIndex] & RocketState_Delayed))
 	{
-		fTimeToCheck = g_fLastSpawnTime[iIndex];
+		CPrintToChatAll("%t", "DBDelay_Announce_All", iTarget);
+		EmitSoundToAll(SOUND_DEFAULT_SPEEDUP, iEntity, SNDCHAN_AUTO, SNDLEVEL_GUNFIRE);
+		
+		Forward_OnRocketDelay(iIndex, iTarget);
+		
+		Internal_SetRocketState(iIndex, (g_iRocketState[iIndex] | RocketState_Delayed));
 	}
 	else
 	{
-		fTimeToCheck = g_fRocketLastDeflectionTime[iIndex];
-	}
-	
-	if (iTarget != INVALID_ENT_REFERENCE && (GetGameTime() - fTimeToCheck) >= g_hCvarDelayPreventionTime.FloatValue)
-	{
 		g_fRocketSpeed[iIndex] += g_hCvarDelayPreventionSpeedup.FloatValue;
-		if (!(g_iRocketState[iIndex] & RocketState_Delayed))
-		{
-			CPrintToChatAll("%t", "DBDelay_Announce_All", iTarget);
-			EmitSoundToAll(SOUND_DEFAULT_SPEEDUP, iEntity, SNDCHAN_AUTO, SNDLEVEL_GUNFIRE);
-			
-			Forward_OnRocketDelay(iIndex, iTarget);
-		}
-		Internal_SetRocketState(iIndex, (g_iRocketState[iIndex] | RocketState_Delayed));
 	}
 }
 
@@ -3310,15 +3313,6 @@ public Action OnTFExplosion(const char[] strTEName, const int[] iClients, int iN
 		// The next hook will check if it should ignore itself (this means allowing the new explosion, not blocking it).
 		return Plugin_Continue;
 	}
-	
-	// OKAY. so valve introduced some bug where reflecting a rocket into the world would make the client emit a looping flamethrower sound
-	// based on my observations, there's two possibilities:
-	// 
-	//   1. the server is incorrectly creating TFExplosion TEs that the client mis-interprets and then proceeds to play looped sounds with
-	//   2. there's some networked data race where the client is processing a TE's networked fields before they're fully up to date (can this even happen? it's valve, who knows)
-	// 
-	// another observation is that when the m_nDefID field is either not correctly assigned by the server (and is set to -1), the client will not play the weapon replacement sound
-	// that makes the flamethrower loop forever
 	
 	TE_Start("TFExplosion");
 	
