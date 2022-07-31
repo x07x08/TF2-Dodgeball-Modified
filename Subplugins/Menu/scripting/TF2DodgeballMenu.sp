@@ -231,6 +231,13 @@ public void OnMapEnd()
 
 public void TFDB_OnRocketsConfigExecuted(const char[] strConfigFile)
 {
+	// This will cause problems if "general.cfg" is not executed first.
+	if (strcmp(strConfigFile, "general.cfg") == 0)
+	{
+		Internal_DestroyRocketClasses();
+		Internal_DestroySpawners();
+	}
+	
 	ParseConfigurations(strConfigFile);
 }
 
@@ -327,8 +334,6 @@ public int DodgeballMenuHandler(Menu hMenu, MenuAction iMenuActions, int iParam1
 				{
 					TFDB_DestroyRocketClasses();
 					TFDB_DestroySpawners();
-					Internal_DestroyRocketClasses();
-					Internal_DestroySpawners();
 					char strMapName[64]; GetCurrentMap(strMapName, sizeof(strMapName));
 					char strMapFile[PLATFORM_MAX_PATH]; FormatEx(strMapFile, sizeof(strMapFile), "%s.cfg", strMapName);
 					TFDB_ParseConfigurations();

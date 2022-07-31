@@ -78,8 +78,8 @@ public void OnMapEnd()
 
 public void TFDB_OnRocketsConfigExecuted()
 {
-	g_hMainHudSync  = CreateHudSynchronizer();
-	g_hMultiHudSync = CreateHudSynchronizer();
+	if (g_hMainHudSync  == null) g_hMainHudSync  = CreateHudSynchronizer();
+	if (g_hMultiHudSync == null) g_hMultiHudSync = CreateHudSynchronizer();
 	
 	HookEvent("teamplay_round_win", OnRoundEnd);
 	HookEvent("arena_round_start", OnSetupFinished);
