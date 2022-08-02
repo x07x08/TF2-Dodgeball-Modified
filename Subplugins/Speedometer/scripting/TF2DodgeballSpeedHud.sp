@@ -226,7 +226,7 @@ public Action HudTimerCallback(Handle hTimer)
 
 void ShowMainRocketHud(int iClient, int iIndex)
 {
-	SetHudTextParams(-1.0, 0.9, 0.1, 255, 255, 255, 255, 0, 0.0, 0.1, 0.1);
+	SetHudTextParams(-1.0, 0.9, 0.1, 255, 255, 255, 255, 0, 0.0, 0.12, 0.12);
 	
 	ShowSyncHudText(iClient, g_hMainHudSync, "%t", "Hud_Speedometer", TFDB_GetRocketMphSpeed(iIndex),
 	                                                                  TFDB_GetRocketSpeed(iIndex),
