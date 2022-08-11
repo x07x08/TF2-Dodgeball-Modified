@@ -11,7 +11,7 @@
 #define PLUGIN_NAME        "[TFDB] Rocket Speedometer"
 #define PLUGIN_AUTHOR      "x07x08"
 #define PLUGIN_DESCRIPTION "Shows the speed of the last deflected rocket"
-#define PLUGIN_VERSION     "1.1.0"
+#define PLUGIN_VERSION     "1.1.1"
 #define PLUGIN_URL         "https://github.com/x07x08/TF2-Dodgeball-Modified"
 
 int    g_iLastRocket = -1;
@@ -21,6 +21,7 @@ Cookie g_hCookieShowHud;
 Handle g_hHudTimer;
 Handle g_hMainHudSync;
 Handle g_hMultiHudSync;
+bool   g_bLoaded;
 
 public Plugin myinfo = 
 {
@@ -63,6 +64,8 @@ public void OnPluginStart()
 
 public void OnMapEnd()
 {
+	if (!g_bLoaded) return;
+	
 	g_iLastRocket = -1;
 	g_strMultiHudText = "\0";
 	
@@ -74,15 +77,21 @@ public void OnMapEnd()
 	
 	UnhookEvent("teamplay_round_win", OnRoundEnd);
 	UnhookEvent("arena_round_start", OnSetupFinished);
+	
+	g_bLoaded = false;
 }
 
 public void TFDB_OnRocketsConfigExecuted()
 {
-	if (g_hMainHudSync  == null) g_hMainHudSync  = CreateHudSynchronizer();
-	if (g_hMultiHudSync == null) g_hMultiHudSync = CreateHudSynchronizer();
+	if (g_bLoaded) return;
+	
+	g_hMainHudSync  = CreateHudSynchronizer();
+	g_hMultiHudSync = CreateHudSynchronizer();
 	
 	HookEvent("teamplay_round_win", OnRoundEnd);
 	HookEvent("arena_round_start", OnSetupFinished);
+	
+	g_bLoaded = true;
 }
 
 public void OnClientDisconnect(int iClient)
@@ -132,7 +141,7 @@ public void OnRoundEnd(Event hEvent, char[] strEventName, bool bDontBroadcast)
 
 public void OnSetupFinished(Event hEvent, char[] strEventName, bool bDontBroadcast)
 {
-	if (BothTeamsPlaying() == true)
+	if (BothTeamsPlaying())
 	{
 		g_iLastRocket = -1;
 		g_strMultiHudText = "\0";

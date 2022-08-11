@@ -21,8 +21,8 @@
 // *********************************************************************************
 // ---- Plugin-related constants ---------------------------------------------------
 #define PLUGIN_NAME             "[TF2] Dodgeball"
-#define PLUGIN_AUTHOR           "Damizean, edited by x07x08 with features from YADBP 1.4.2 & Redux"
-#define PLUGIN_VERSION          "1.7.2"
+#define PLUGIN_AUTHOR           "Damizean, edited by x07x08"
+#define PLUGIN_VERSION          "1.7.5"
 #define PLUGIN_CONTACT          "https://github.com/x07x08/TF2-Dodgeball-Modified"
 
 // ---- Flags and types constants --------------------------------------------------
@@ -1029,7 +1029,7 @@ public void OnGameFrame()
 public Action OnDodgeBallGameFrame(Handle hTimer, any Data)
 {
     // Only if both teams are playing
-    if (!g_bRoundStarted) return Plugin_Continue;
+    if (!BothTeamsPlaying()) return Plugin_Continue;
     
     // Check if we need to fire more rockets.
     if (GetGameTime() >= g_fNextSpawnTime)
