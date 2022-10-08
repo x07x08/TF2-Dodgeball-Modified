@@ -15,9 +15,12 @@
 For a list of commands, check the configuration file located in [`addons/sourcemod/configs/dodgeball`](https://github.com/x07x08/TF2-Dodgeball-Modified/tree/main/TF2Dodgeball/addons/sourcemod/configs/dodgeball).
 
 # Installation
-Drag and drop the contents of a folder inside the `tf` folder.
+<!-- https://ibb.co/qJRg3fV - Weren't the instructions clear already... -->
+`TF2Dodgeball` : Its contents go inside `tf`.
 
-If you plan on using airblast prevention, make sure to also add the contents of [`cfg/sourcemod`](https://github.com/x07x08/TF2-Dodgeball-Modified/tree/main/TF2Dodgeball/cfg/sourcemod).
+`Subplugins` : Copy the contents of a subplugin folder (ex. `Menu`) inside `tf/addons`.
+
+The `README.md` files can be omitted.
 
 # Requirements
 - [Multi-Colors](https://github.com/Bara/Multi-Colors) (compile only).
