@@ -16,11 +16,9 @@ For a list of commands, check the configuration file located in [`addons/sourcem
 
 # Installation
 <!-- https://ibb.co/qJRg3fV - Weren't the instructions clear already... -->
-`TF2Dodgeball` : Its contents go inside `tf`.
-
-`Subplugins` : Copy the contents of a subplugin folder (ex. `Menu`) inside `tf/addons`.
-
-The `README.md` files can be omitted.
+1. `TF2Dodgeball` : Its contents go inside `tf`.
+2. `Subplugins` : Copy the contents of a subplugin folder (ex. `Menu`) inside `tf/addons`.
+- The `README.md` files can be omitted.
 
 # Requirements
 - [Multi-Colors](https://github.com/Bara/Multi-Colors) (compile only).
