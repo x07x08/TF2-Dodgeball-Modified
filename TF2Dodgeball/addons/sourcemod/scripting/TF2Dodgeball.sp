@@ -8,8 +8,6 @@
 // INCLUDES
 // *********************************************************************************
 #include <sourcemod>
-#include <sdktools>
-#include <tf2>
 #include <tf2_stocks>
 #include <sdkhooks>
 #include <multicolors>
@@ -22,7 +20,7 @@
 // ---- Plugin-related constants ---------------------------------------------------
 #define PLUGIN_NAME             "[TF2] Dodgeball"
 #define PLUGIN_AUTHOR           "Damizean, edited by x07x08"
-#define PLUGIN_VERSION          "1.7.5"
+#define PLUGIN_VERSION          "1.8.0"
 #define PLUGIN_CONTACT          "https://github.com/x07x08/TF2-Dodgeball-Modified"
 
 // ---- Flags and types constants --------------------------------------------------
@@ -189,8 +187,6 @@ Handle g_hForwardOnRocketBounce;
 Handle g_hForwardOnRocketBouncePre;
 Handle g_hForwardOnRocketsConfigExecuted;
 Handle g_hForwardOnRocketStateChanged;
-
-bool g_bIgnoreHook;
 
 // *********************************************************************************
 // PLUGIN
@@ -593,7 +589,8 @@ void EnableDodgeBall()
         
         // Hook events and info_target outputs.
         HookEvent("teamplay_round_start", OnRoundStart, EventHookMode_PostNoCopy);
-        HookEvent("arena_round_start", OnSetupFinished, EventHookMode_PostNoCopy); // teamplay_setup_finished will not fire on maps that lack team_round_timer
+        // teamplay_setup_finished will not fire on maps that lack team_round_timer
+        HookEvent("arena_round_start", OnSetupFinished, EventHookMode_PostNoCopy);
         HookEvent("teamplay_round_win", OnRoundEnd, EventHookMode_PostNoCopy);
         HookEvent("player_spawn", OnPlayerSpawn, EventHookMode_Post);
         HookEvent("player_death", OnPlayerDeath, EventHookMode_Pre);
@@ -1109,7 +1106,7 @@ void CreateRocket(int iSpawnerEntity, int iSpawnerClass, int iTeam, int iClass =
         if (iEntity && IsValidEntity(iEntity))
         {
             // Fetch spawn point's location and angles.
-            float fPosition[3], fAngles[3], fDirection[3];
+            static float fPosition[3], fAngles[3], fDirection[3];
             GetEntPropVector(iSpawnerEntity, Prop_Send, "m_vecOrigin", fPosition);
             GetEntPropVector(iSpawnerEntity, Prop_Send, "m_angRotation", fAngles);
             GetAngleVectors(fAngles, fDirection, NULL_VECTOR, NULL_VECTOR);
@@ -1172,7 +1169,8 @@ void CreateRocket(int iSpawnerEntity, int iSpawnerClass, int iTeam, int iClass =
                     
                     if (TestFlags(iFlags, RocketFlag_ReplaceParticles))
                     {
-                        CreateTempParticle("rockettrail_fire", fPosition, NULL_VECTOR, fAngles, iOtherEntity, PATTACH_POINT, 1); // If the rocket gets instantly destroyed, the temp ent still gets sent. Why?
+                        // If the rocket gets instantly destroyed, the temp ent still gets sent. Why?
+                        CreateTempParticle("rockettrail_fire", fPosition, NULL_VECTOR, fAngles, iOtherEntity, PATTACH_POINT, 1);
                         
                         bool bCritical = !!GetEntProp(iEntity, Prop_Send, "m_bCritical");
                         if (bCritical)
@@ -1259,7 +1257,8 @@ void CreateRocket(int iSpawnerEntity, int iSpawnerClass, int iTeam, int iClass =
                         AcceptEntityInput(iTrailEntity, "Start");
                     }
                     
-                    SetEdictFlags(iTrailEntity, (GetEdictFlags(iTrailEntity) & ~FL_EDICT_ALWAYS)); // Allows SetTransmit to work on info_particle_system
+                    // This allows SetTransmit to work on info_particle_system
+                    SetEdictFlags(iTrailEntity, (GetEdictFlags(iTrailEntity) & ~FL_EDICT_ALWAYS));
                     SDKHook(iTrailEntity, SDKHook_SetTransmit, TrailSetTransmit);
                 }
             }
@@ -1271,7 +1270,7 @@ void CreateRocket(int iSpawnerEntity, int iSpawnerClass, int iTeam, int iClass =
                 {
                     TeleportEntity(iSpriteEntity, fPosition, fAngles, view_as<float>({0.0, 0.0, 0.0}));
                     
-                    char strSpritePath[PLATFORM_MAX_PATH];
+                    static char strSpritePath[PLATFORM_MAX_PATH];
                     FormatEx(strSpritePath, PLATFORM_MAX_PATH, "%s.vmt", g_strRocketClassSprite[iClass]);
                     
                     DispatchKeyValue(iSpriteEntity, "spritename", strSpritePath);
@@ -1481,7 +1480,7 @@ void HomingRocketThink(int iIndex)
         Internal_SetRocketState(iIndex, (g_iRocketState[iIndex] | (RocketState_CanDrag | RocketState_Dragging)));
         if (IsValidClient(iClient))
         {
-            float fViewAngles[3], fDirection[3];
+            static float fViewAngles[3], fDirection[3];
             GetClientEyeAngles(iClient, fViewAngles);
             GetAngleVectors(fViewAngles, fDirection, NULL_VECTOR, NULL_VECTOR);
             CopyVectors(fDirection, g_fRocketDirection[iIndex]);
@@ -1508,7 +1507,7 @@ void HomingRocketThink(int iIndex)
                 int iClient = GetEntPropEnt(iEntity, Prop_Send, "m_hOwnerEntity");
                 if (IsValidClient(iClient))
                 {
-                    float fViewAngles[3], fDirection[3];
+                    static float fViewAngles[3], fDirection[3];
                     GetClientEyeAngles(iClient, fViewAngles);
                     GetAngleVectors(fViewAngles, fDirection, NULL_VECTOR, NULL_VECTOR);
                     CopyVectors(fDirection, g_fRocketDirection[iIndex]);
@@ -1606,7 +1605,7 @@ void HomingRocketThink(int iIndex)
                 {
                     // Calculate turn rate and retrieve directions.
                     float fTurnRate = CalculateRocketTurnRate(iClass, fModifier) / g_fTickModifier;
-                    float fDirectionToTarget[3]; CalculateDirectionToClient(iEntity, iTarget, fDirectionToTarget);
+                    static float fDirectionToTarget[3]; CalculateDirectionToClient(iEntity, iTarget, fDirectionToTarget);
                     
                     if (g_iRocketFlags[iIndex] & RocketFlag_Elevating)
                     {
@@ -1716,7 +1715,7 @@ void RocketLegacyThink(int iIndex)
         
         if (IsValidClient(iClient))
         {
-            float fViewAngles[3], fDirection[3];
+            static float fViewAngles[3], fDirection[3];
             GetClientEyeAngles(iClient, fViewAngles);
             GetAngleVectors(fViewAngles, fDirection, NULL_VECTOR, NULL_VECTOR);
             CopyVectors(fDirection, g_fRocketDirection[iIndex]);
@@ -1794,7 +1793,7 @@ void RocketLegacyThink(int iIndex)
         {
             // Calculate turn rate and retrieve directions.
             float fTurnRate = CalculateRocketTurnRate(iClass, fModifier);
-            float fDirectionToTarget[3]; CalculateDirectionToClient(iEntity, iTarget, fDirectionToTarget);
+            static float fDirectionToTarget[3]; CalculateDirectionToClient(iEntity, iTarget, fDirectionToTarget);
             
             // Elevate the rocket after a deflection (if it's enabled on the class definition, of course.)
             if (g_iRocketFlags[iIndex] & RocketFlag_Elevating)
@@ -1842,8 +1841,8 @@ void RocketLegacyThink(int iIndex)
 ** -------------------------------------------------------------------------- */
 float CalculateModifier(int iClass, int iDeflections)
 {
-    return  iDeflections + 
-            (g_iRocketsFired * g_fRocketClassRocketsModifier[iClass]) + 
+    return  iDeflections +
+            (g_iRocketsFired * g_fRocketClassRocketsModifier[iClass]) +
             (g_iPlayerCount * g_fRocketClassPlayerModifier[iClass]);
 }
 
@@ -1881,7 +1880,7 @@ float CalculateRocketTurnRate(int iClass, float fModifier)
 ** -------------------------------------------------------------------------- */
 void CalculateDirectionToClient(int iEntity, int iClient, float fOut[3])
 {
-    float fRocketPosition[3]; GetEntPropVector(iEntity, Prop_Send, "m_vecOrigin", fRocketPosition);
+    static float fRocketPosition[3]; GetEntPropVector(iEntity, Prop_Send, "m_vecOrigin", fRocketPosition);
     GetClientEyePosition(iClient, fOut);
     MakeVectorFromPoints(fRocketPosition, fOut, fOut);
     NormalizeVector(fOut, fOut);
@@ -1895,8 +1894,8 @@ void CalculateDirectionToClient(int iEntity, int iClient, float fOut[3])
 void ApplyRocketParameters(int iIndex)
 {
     int iEntity = EntRefToEntIndex(g_iRocketEntity[iIndex]);
-    float fAngles[3]; GetVectorAngles(g_fRocketDirection[iIndex], fAngles);
-    float fVelocity[3]; CopyVectors(g_fRocketDirection[iIndex], fVelocity);
+    static float fAngles[3]; GetVectorAngles(g_fRocketDirection[iIndex], fAngles);
+    static float fVelocity[3]; CopyVectors(g_fRocketDirection[iIndex], fVelocity);
     ScaleVector(fVelocity, g_fRocketSpeed[iIndex]);
     SetEntPropVector(iEntity, Prop_Data, "m_vecAbsVelocity", fVelocity);
     SetEntPropVector(iEntity, Prop_Send, "m_angRotation", fAngles);
@@ -2122,7 +2121,7 @@ public Action CmdExplosion(int iArgs)
         iClient = StringToInt(strBuffer);
         if (IsValidEntity(iClient))
         {
-            float fPosition[3]; GetClientAbsOrigin(iClient, fPosition);
+            static float fPosition[3]; GetClientAbsOrigin(iClient, fPosition);
             switch (GetURandomIntRange(0, 4))
             {
                 case 0 : { PlayParticle(fPosition, PARTICLE_NUKE_1_ANGLES, PARTICLE_NUKE_1); }
@@ -2151,7 +2150,7 @@ public Action CmdShockwave(int iArgs)
 {
     if (iArgs == 5 && g_bEnabled)
     {
-        char strBuffer[8]; int iClient, iTeam; float fPosition[3]; int iDamage; float fPushStrength, fRadius, fFalloffRadius;
+        static char strBuffer[8]; int iClient, iTeam; static float fPosition[3]; int iDamage; float fPushStrength, fRadius, fFalloffRadius;
         GetCmdArg(1, strBuffer, sizeof(strBuffer)); iClient        = StringToInt(strBuffer);
         GetCmdArg(2, strBuffer, sizeof(strBuffer)); iDamage        = StringToInt(strBuffer);
         GetCmdArg(3, strBuffer, sizeof(strBuffer)); fPushStrength  = StringToFloat(strBuffer);
@@ -2167,12 +2166,12 @@ public Action CmdShockwave(int iArgs)
             {
                 if (IsValidClientEx(iClient, true) && (GetClientTeam(iClient) == iTeam))
                 {
-                    float fPlayerPosition[3]; GetClientEyePosition(iClient, fPlayerPosition);
+                    static float fPlayerPosition[3]; GetClientEyePosition(iClient, fPlayerPosition);
                     float fDistanceToShockwave = GetVectorDistance(fPosition, fPlayerPosition);
                     
                     if (fDistanceToShockwave < fRadius)
                     {
-                        float fImpulse[3], fFinalPush; int iFinalDamage;
+                        static float fImpulse[3], fFinalPush; int iFinalDamage;
                         fImpulse[0] = fPlayerPosition[0] - fPosition[0];
                         fImpulse[1] = fPlayerPosition[1] - fPosition[1];
                         fImpulse[2] = fPlayerPosition[2] - fPosition[2];
@@ -2261,17 +2260,20 @@ void ExecuteCommands(DataPack hDataPack, int iClass, int iRocket, int iOwner, in
     int iNumCommands = hDataPack.ReadCell();
     while (iNumCommands-- > 0)
     {
-        char strCmd[256], strBuffer[32];
+        static char strCmd[256], strBuffer[32];
         hDataPack.ReadString(strCmd, sizeof(strCmd));
         ReplaceString(strCmd, sizeof(strCmd), "@name", g_strRocketClassLongName[iClass]);
-        FormatEx(strBuffer, sizeof(strBuffer), "%i", iRocket);                ReplaceString(strCmd, sizeof(strCmd), "@rocket", strBuffer);
-        FormatEx(strBuffer, sizeof(strBuffer), "%i", iOwner);                 ReplaceString(strCmd, sizeof(strCmd), "@owner", strBuffer);
-        FormatEx(strBuffer, sizeof(strBuffer), "%i", iTarget);                ReplaceString(strCmd, sizeof(strCmd), "@target", strBuffer);
-        FormatEx(strBuffer, sizeof(strBuffer), "%i", iLastDead);              ReplaceString(strCmd, sizeof(strCmd), "@dead", strBuffer);
-        FormatEx(strBuffer, sizeof(strBuffer), "%.2f", fSpeed);               ReplaceString(strCmd, sizeof(strCmd), "@speed", strBuffer);
-        FormatEx(strBuffer, sizeof(strBuffer), "%i", iNumDeflections);        ReplaceString(strCmd, sizeof(strCmd), "@deflections", strBuffer);
-        FormatEx(strBuffer, sizeof(strBuffer), "%i", RoundFloat(fMphSpeed));  ReplaceString(strCmd, sizeof(strCmd), "@mphspeed", strBuffer);
-        FormatEx(strBuffer, sizeof(strBuffer), "%.2f", fMphSpeed / 0.042614); ReplaceString(strCmd, sizeof(strCmd), "@nocapspeed", strBuffer);
+        FormatEx(strBuffer, sizeof(strBuffer), "%i", iRocket);                           ReplaceString(strCmd, sizeof(strCmd), "@rocket", strBuffer);
+        FormatEx(strBuffer, sizeof(strBuffer), "%i", iOwner);                            ReplaceString(strCmd, sizeof(strCmd), "@owner", strBuffer);
+        FormatEx(strBuffer, sizeof(strBuffer), "%i", iTarget);                           ReplaceString(strCmd, sizeof(strCmd), "@target", strBuffer);
+        FormatEx(strBuffer, sizeof(strBuffer), "%i", iLastDead);                         ReplaceString(strCmd, sizeof(strCmd), "@dead", strBuffer);
+        FormatEx(strBuffer, sizeof(strBuffer), "%i", iNumDeflections);                   ReplaceString(strCmd, sizeof(strCmd), "@deflections", strBuffer);
+        FormatEx(strBuffer, sizeof(strBuffer), "%f", fSpeed);                            ReplaceString(strCmd, sizeof(strCmd), "@speed", strBuffer);
+        FormatEx(strBuffer, sizeof(strBuffer), "%i", RoundToNearest(fMphSpeed));         ReplaceString(strCmd, sizeof(strCmd), "@mphspeed", strBuffer);
+        FormatEx(strBuffer, sizeof(strBuffer), "%i", RoundToNearest(fSpeed * 0.042614)); ReplaceString(strCmd, sizeof(strCmd), "@capmphspeed", strBuffer);
+        FormatEx(strBuffer, sizeof(strBuffer), "%f", fMphSpeed / 0.042614);              ReplaceString(strCmd, sizeof(strCmd), "@nocapspeed", strBuffer);
+        FormatEx(strBuffer, sizeof(strBuffer), "%.2f", fSpeed);                          ReplaceString(strCmd, sizeof(strCmd), "@2dspeed", strBuffer);
+        FormatEx(strBuffer, sizeof(strBuffer), "%.2f", fMphSpeed / 0.042614);            ReplaceString(strCmd, sizeof(strCmd), "@2dnocapspeed", strBuffer);
         ServerCommand(strCmd);
     }
 }
@@ -2670,8 +2672,8 @@ stock int SelectTarget(int iTeam, int iRocket = -1)
 {
     int iTarget = -1;
     float fTargetWeight = 0.0;
-    float fRocketPosition[3];
-    float fRocketDirection[3];
+    static float fRocketPosition[3];
+    static float fRocketDirection[3];
     float fWeight;
     bool bUseRocket;
     int iOwner = -1;
@@ -2701,8 +2703,8 @@ stock int SelectTarget(int iTeam, int iRocket = -1)
         
         if (bUseRocket)
         {
-            float fClientPosition[3]; GetClientEyePosition(iClient, fClientPosition);
-            float fDirectionToClient[3]; MakeVectorFromPoints(fRocketPosition, fClientPosition, fDirectionToClient);
+            static float fClientPosition[3]; GetClientEyePosition(iClient, fClientPosition);
+            static float fDirectionToClient[3]; MakeVectorFromPoints(fRocketPosition, fClientPosition, fDirectionToClient);
             fNewWeight += GetVectorDotProduct(fRocketDirection, fDirectionToClient) * fWeight;
         }
         
@@ -2839,7 +2841,7 @@ stock void ShowHiddenMOTDPanel(int iClient, char[] strTitle, char[] strMsg, char
 ** -------------------------------------------------------------------------- */
 stock void PrecacheSoundEx(char[] strFileName, bool bPreload = false, bool bAddToDownloadTable = false)
 {
-    char strFinalPath[PLATFORM_MAX_PATH]; 
+    char strFinalPath[PLATFORM_MAX_PATH];
     FormatEx(strFinalPath, sizeof(strFinalPath), "sound/%s", strFileName);
     PrecacheSound(strFileName, bPreload);
     if (bAddToDownloadTable) AddFileToDownloadsTable(strFinalPath);
@@ -3055,13 +3057,13 @@ public Action OnTouch(int iEntity, int iOther)
 	{
 		int iClass = g_iRocketClass[iIndex];
 		
-		float vOrigin[3];
+		static float vOrigin[3];
 		GetEntPropVector(iEntity, Prop_Data, "m_vecOrigin", vOrigin);
 		
-		float vAngles[3];
+		static float vAngles[3];
 		GetEntPropVector(iEntity, Prop_Data, "m_angRotation", vAngles);
 		
-		float vVelocity[3];
+		static float vVelocity[3];
 		GetEntPropVector(iEntity, Prop_Data, "m_vecAbsVelocity", vVelocity);
 		
 		Handle hTrace = TR_TraceRayFilterEx(vOrigin, vAngles, MASK_SHOT, RayType_Infinite, TEF_ExcludeEntity, iEntity);
@@ -3072,7 +3074,7 @@ public Action OnTouch(int iEntity, int iOther)
 			return Plugin_Continue;
 		}
 		
-		float vNormal[3];
+		static float vNormal[3];
 		TR_GetPlaneNormal(hTrace, vNormal);
 		
 		//PrintToServer("Surface Normal: [%.2f, %.2f, %.2f]", vNormal[0], vNormal[1], vNormal[2]);
@@ -3084,19 +3086,19 @@ public Action OnTouch(int iEntity, int iOther)
 		ScaleVector(vNormal, dotProduct);
 		ScaleVector(vNormal, 2.0);
 		
-		float vBounceVec[3];
+		static float vBounceVec[3];
 		SubtractVectors(vVelocity, vNormal, vBounceVec);
 		
 		ScaleVector(vBounceVec, g_fRocketClassBounceScale[iClass]);
 		
-		float vNewAngles[3];
+		static float vNewAngles[3];
 		GetVectorAngles(vBounceVec, vNewAngles);
 		
 		//PrintToServer("Angles: [%.2f, %.2f, %.2f] -> [%.2f, %.2f, %.2f]", vAngles[0], vAngles[1], vAngles[2], vNewAngles[0], vNewAngles[1], vNewAngles[2]);
 		//PrintToServer("Velocity: [%.2f, %.2f, %.2f] |%.2f| -> [%.2f, %.2f, %.2f] |%.2f|", vVelocity[0], vVelocity[1], vVelocity[2], GetVectorLength(vVelocity), vBounceVec[0], vBounceVec[1], vBounceVec[2], GetVectorLength(vBounceVec));
 		
-		float vNewAnglesRef[3]; CopyVectors(vNewAngles, vNewAnglesRef);
-		float vBounceVecRef[3]; CopyVectors(vBounceVec, vBounceVecRef);
+		static float vNewAnglesRef[3]; CopyVectors(vNewAngles, vNewAnglesRef);
+		static float vBounceVecRef[3]; CopyVectors(vBounceVec, vBounceVecRef);
 		
 		Action aResult = Forward_OnRocketBouncePre(iIndex, iEntity, vNewAnglesRef, vBounceVecRef);
 		
@@ -3127,7 +3129,7 @@ public Action OnTouch(int iEntity, int iOther)
 		}
 		else
 		{
-			float fDirection[3];
+			static float fDirection[3];
 			GetAngleVectors(vNewAngles,fDirection,NULL_VECTOR,NULL_VECTOR);
 			CopyVectors(fDirection, g_fRocketDirection[iIndex]);
 		}
@@ -3172,10 +3174,10 @@ void CheckRoundDelays(int iIndex)
 
 stock float GetEntitiesDistance(int iEnt1, int iEnt2)
 {
-	float fOrig1[3];
+	static float fOrig1[3];
 	GetEntPropVector(iEnt1, Prop_Send, "m_vecOrigin", fOrig1);
 	
-	float fOrig2[3];
+	static float fOrig2[3];
 	GetEntPropVector(iEnt2, Prop_Send, "m_vecOrigin", fOrig2);
 	
 	return GetVectorDistance(fOrig1, fOrig2);
@@ -3279,7 +3281,7 @@ stock int PrecacheParticleSystem(const char[] strParticleSystem)
 
 stock int FindStringIndex2(int iTableIndex, const char[] strString)
 {
-	char strBuffer[1024];
+	static char strBuffer[1024];
 	
 	int iNumStrings = GetStringTableNumStrings(iTableIndex);
 	for (int iIndex = 0; iIndex < iNumStrings; iIndex++)
@@ -3300,14 +3302,16 @@ stock int FindStringIndex2(int iTableIndex, const char[] strString)
 
 public Action OnTFExplosion(const char[] strTEName, const int[] iClients, int iNumClients, float fDelay)
 {
+	static int bIgnoreHook;
+	
 	if (!g_bEnabled)
 	{
 		return Plugin_Continue;
 	}
 	
-	if (g_bIgnoreHook)
+	if (bIgnoreHook)
 	{
-		g_bIgnoreHook = false;
+		bIgnoreHook = false;
 		
 		// Whenever we send a new explosion inside this hook, it will retrigger it, causing a loop which crashes the server.
 		// The next hook will check if it should ignore itself (this means allowing the new explosion, not blocking it).
@@ -3316,7 +3320,7 @@ public Action OnTFExplosion(const char[] strTEName, const int[] iClients, int iN
 	
 	TE_Start("TFExplosion");
 	
-	float vecNormal[3]; TE_ReadVector("m_vecNormal", vecNormal);
+	static float vecNormal[3]; TE_ReadVector("m_vecNormal", vecNormal);
 	
 	TE_WriteFloat("m_vecOrigin[0]", TE_ReadFloat("m_vecOrigin[0]"));
 	TE_WriteFloat("m_vecOrigin[1]", TE_ReadFloat("m_vecOrigin[1]"));
@@ -3330,7 +3334,7 @@ public Action OnTFExplosion(const char[] strTEName, const int[] iClients, int iN
 	TE_WriteNum("m_nSound",    TE_ReadNum("m_nSound"));
 	TE_WriteNum("m_iCustomParticleIndex", TE_ReadNum("m_iCustomParticleIndex"));
 	
-	g_bIgnoreHook = true; // Mark the next hook as ignored before we send, otherwise it will loop
+	bIgnoreHook = true; // Mark the next hook as ignored before we send, otherwise it will loop
 	
 	// send our modified TE
 	TE_Send(iClients, iNumClients, fDelay);

@@ -102,10 +102,7 @@ public void OnClientDisconnect(int iClient)
 
 public void OnClientPutInServer(int iClient)
 {
-	if (IsValidClient(iClient))
-	{
-		SDKHook(iClient, SDKHook_OnTakeDamage, OnPlayerTakeDamage);
-	}
+	SDKHook(iClient, SDKHook_OnTakeDamage, OnPlayerTakeDamage);
 }
 
 public Action OnPlayerTakeDamage(int iVictim, int &iAttacker, int &iInflictor, float &fDamage, int &iDamageType)
