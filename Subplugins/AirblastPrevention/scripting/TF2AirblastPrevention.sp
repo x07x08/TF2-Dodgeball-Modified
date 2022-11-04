@@ -3,90 +3,115 @@
 
 #include <sourcemod>
 #include <sdkhooks>
+#include <multicolors>
 
-ConVar g_hCvarPreventionEnabled;
+#include <tfdb>
+
+ConVar g_hCvarCommandEnabled;
 bool   g_bClientEnabled[MAXPLAYERS + 1] = {true, ...};
+bool   g_bLoaded;
 
 public Plugin myinfo =
 {
 	name        = "[TFDB] Airblast push prevention",
 	author      = "BloodyNightmare, Mitchell, edited by x07x08",
 	description = "Prevents users from pushing each other by airblasting.",
-	version     = "1.1.0",
+	version     = "1.2.0",
 	url         = "https://github.com/x07x08/TF2-Dodgeball-Modified"
 };
 
 public void OnPluginStart()
 {
-	g_hCvarPreventionEnabled = CreateConVar("tf_dodgeball_airblast", "1", "Enable the plugin?", _, true, 0.0, true, 1.0);
+	LoadTranslations("tfdb.phrases.txt");
 	
-	for (int iClient = 1; iClient <= MaxClients; iClient++)
+	g_hCvarCommandEnabled = CreateConVar("tf_dodgeball_ab_command", "1", "Allow people to toggle airblast prevention?\n Turning this off also enables airblast prevention on all clients.", _, true, 0.0, true, 1.0);
+	
+	RegConsoleCmd("sm_ab", CmdAirblastPrevention, "Toggles push prevention.");
+	
+	if (TFDB_IsDodgeballEnabled())
 	{
-		if (IsClientInGame(iClient))
+		TFDB_OnRocketsConfigExecuted();
+		
+		for (int iClient = 1; iClient <= MaxClients; iClient++)
 		{
+			if (!IsClientInGame(iClient)) continue;
+			
 			SDKHook(iClient, SDKHook_WeaponCanUse, WeaponCanUseCallback);
 			
 			// Enabled by default
 			if (IsPlayerAlive(iClient)) SetEntityFlags(iClient, GetEntityFlags(iClient) | FL_NOTARGET);
 		}
 	}
-	
-	RegConsoleCmd("sm_ab", CmdAirblastPrevention, "Toggles push prevention.");
+}
+
+public void TFDB_OnRocketsConfigExecuted()
+{
+	if (g_bLoaded) return;
 	
 	HookEvent("player_spawn", OnPlayerSpawn);
 	HookEvent("player_death", OnPlayerDeath);
 	
-	g_hCvarPreventionEnabled.AddChangeHook(CvarHook);
+	g_hCvarCommandEnabled.AddChangeHook(CvarCommandCallback);
+	
+	g_bLoaded = true;
 }
 
-public Action OnPlayerSpawn(Event hEvent, char[] strEventName, bool bDontBroadcast)
+public void OnMapEnd()
+{
+	if (!g_bLoaded) return;
+	
+	UnhookEvent("player_spawn", OnPlayerSpawn);
+	UnhookEvent("player_death", OnPlayerDeath);
+	
+	g_hCvarCommandEnabled.RemoveChangeHook(CvarCommandCallback);
+	
+	g_bLoaded = false;
+}
+
+public void OnPlayerSpawn(Event hEvent, char[] strEventName, bool bDontBroadcast)
 {
 	int iClient = GetClientOfUserId(hEvent.GetInt("userid"));
 	int iFlags  = GetEntityFlags(iClient);
 	
-	if (g_hCvarPreventionEnabled.BoolValue &&
-	    (GetClientTeam(iClient) >= 2) &&
-	    g_bClientEnabled[iClient] &&
-	    !(iFlags & FL_NOTARGET))
+	if ((GetClientTeam(iClient) >= 2) && g_bClientEnabled[iClient])
 	{
 		SetEntityFlags(iClient, iFlags | FL_NOTARGET);
 	}
-	
-	return Plugin_Continue;
 }
 
-public Action OnPlayerDeath(Event hEvent, char[] strEventName, bool bDontBroadcast)
+public void OnPlayerDeath(Event hEvent, char[] strEventName, bool bDontBroadcast)
 {
 	int iClient = GetClientOfUserId(hEvent.GetInt("userid"));
 	
-	// If you spectate an enemy while having anti-airblast enabled, they will "airblast" you.
-	// I don't know if this fixes the problem.
-	SetEntityFlags(iClient, GetEntityFlags(iClient) & ~FL_NOTARGET);
-	
-	return Plugin_Continue;
+	// If you spectate an enemy, he will "airblast" you.
+	// Forcefully adding FL_NOTARGET seems to fix the problem.
+	SetEntityFlags(iClient, GetEntityFlags(iClient) | FL_NOTARGET);
 }
 
 public Action CmdAirblastPrevention(int iClient, int iArgs)
 {
-	if (iClient == 0 || (!IsClientInGame(iClient)))
+	if (iClient == 0)
 	{
+		ReplyToCommand(iClient, "Command is in-game only.");
+		
 		return Plugin_Handled;
 	}
-	else if (g_hCvarPreventionEnabled.BoolValue)
+	
+	if (!TFDB_IsDodgeballEnabled() || !g_hCvarCommandEnabled.BoolValue)
 	{
-		g_bClientEnabled[iClient] = !g_bClientEnabled[iClient];
+		CReplyToCommand(iClient, "%t", "Command_Disabled");
 		
-		if (IsPlayerAlive(iClient))
-		{
-			ToggleAirblastPrevention(iClient);
-		}
-		
-		ReplyToCommand(iClient, "[SM] %s airblast push prevention.", g_bClientEnabled[iClient] ? "Enabled" : "Disabled");
+		return Plugin_Handled;
 	}
-	else
+	
+	g_bClientEnabled[iClient] = !g_bClientEnabled[iClient];
+	
+	if (IsPlayerAlive(iClient))
 	{
-		ReplyToCommand(iClient, "[SM] Command disabled.");
+		ToggleAirblastPrevention(iClient);
 	}
+	
+	CReplyToCommand(iClient, "%t", g_bClientEnabled[iClient] ? "Dodgeball_AirblastPreventionCmd_Enabled" : "Dodgeball_AirblastPreventionCmd_Disabled");
 	
 	return Plugin_Handled;
 }
@@ -103,6 +128,8 @@ public void OnClientConnected(int iClient)
 
 public void OnClientPutInServer(int iClient)
 {
+	if (!g_bLoaded) return;
+	
 	SDKHook(iClient, SDKHook_WeaponCanUse, WeaponCanUseCallback);
 }
 
@@ -117,35 +144,40 @@ public Action WeaponCanUseCallback(int iClient, int iWeapon)
 	
 	SetEntityFlags(iClient, iFlags & ~FL_NOTARGET);
 	
+	RequestFrame(ResetAirblastPrevention, GetClientUserId(iClient));
+	
 	return Plugin_Continue;
+}
+
+public void ResetAirblastPrevention(any iUserId)
+{
+	int iClient = GetClientOfUserId(iUserId);
+	
+	if (iClient == 0 || !IsClientInGame(iClient) || !g_bClientEnabled[iClient]) return;
+	
+	SetEntityFlags(iClient, GetEntityFlags(iClient) | FL_NOTARGET);
 }
 
 void ToggleAirblastPrevention(int iClient)
 {
 	int iFlags = GetEntityFlags(iClient);
 	
-	if (g_bClientEnabled[iClient] ? !(iFlags & FL_NOTARGET) : !!(iFlags & FL_NOTARGET))
-	{
-		SetEntityFlags(iClient, g_bClientEnabled[iClient] ? iFlags | FL_NOTARGET : iFlags & ~FL_NOTARGET);
-	}
+	SetEntityFlags(iClient, g_bClientEnabled[iClient] ? iFlags | FL_NOTARGET : iFlags & ~FL_NOTARGET);
 }
 
-public void CvarHook(ConVar hConVar, const char[] strOldValue, const char[] strNewValue)
+public void CvarCommandCallback(ConVar hConVar, const char[] strOldValue, const char[] strNewValue)
 {
-	bool bConVar = hConVar.BoolValue;
-	int iFlags;
+	if (hConVar.BoolValue) return;
 	
 	for (int iClient = 1; iClient <= MaxClients; iClient++)
 	{
 		if (!IsClientInGame(iClient)) continue;
 		
-		iFlags = GetEntityFlags(iClient);
+		g_bClientEnabled[iClient] = true;
 		
-		if (IsPlayerAlive(iClient) &&
-		    g_bClientEnabled[iClient] &&
-		    bConVar ? !(iFlags & FL_NOTARGET) : !!(iFlags & FL_NOTARGET))
+		if (IsPlayerAlive(iClient))
 		{
-			SetEntityFlags(iClient, bConVar ? iFlags | FL_NOTARGET : iFlags & ~FL_NOTARGET);
+			SetEntityFlags(iClient, GetEntityFlags(iClient) | FL_NOTARGET);
 		}
 	}
 }

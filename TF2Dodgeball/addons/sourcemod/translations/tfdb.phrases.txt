@@ -73,10 +73,14 @@
 	// Starting from here, the translations are used by other plugins
 	// Add your own custom phrases here to maintain the order
 	
-	"Dodgeball_Death_Message"
+	"Dodgeball_AirblastPreventionCmd_Enabled"
 	{
-		"#format"	"{1:N},{2:i}"
-		"en"		"[{olive}TFDB{default}] {burlywood}{1}{default} died to a rocket travelling {red}{2}{default} MpH"
+		"en"		"[{olive}TFDB{default}] {community}Enabled{default} airblast push prevention."
+	}
+	
+	"Dodgeball_AirblastPreventionCmd_Disabled"
+	{
+		"en"		"[{olive}TFDB{default}] {red}Disabled{default} airblast push prevention."
 	}
 	
 	"Dodgeball_FFAVote_Conflict"
@@ -107,17 +111,23 @@
 	
 	"Dodgeball_FFAVote_Disabled"
 	{
-		"en"		"[{olive}TFDB{default}] {darkmagenta}FFA{default} is now {collectors}disabled{default}."
+		"en"		"[{olive}TFDB{default}] {darkmagenta}FFA{default} is now {red}disabled{default}."
 	}
 	
 	"Dodgeball_FFABot_Joined"
 	{
-		"en"		"[{olive}TFDB{default}] A bot has joined. {darkmagenta}FFA{default} is now {collectors}disabled{default}."
+		"en"		"[{olive}TFDB{default}] A bot has joined. {darkmagenta}FFA{default} is now {red}disabled{default}."
 	}
 	
 	"Dodgeball_FFABot_Left"
 	{
 		"en"		"[{olive}TFDB{default}] The bot(s) left. {darkmagenta}FFA{default} is now {community}enabled{default}."
+	}
+	
+	"Dodgeball_Death_Message"
+	{
+		"#format"	"{1:N},{2:i}"
+		"en"		"[{olive}TFDB{default}] {burlywood}{1}{default} died to a rocket travelling {red}{2}{default} MpH"
 	}
 	
 	"Dodgeball_Disabled"
