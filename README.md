@@ -22,6 +22,8 @@ For a list of commands, check the configuration file located in [`addons/sourcem
 
 # Requirements
 - [Multi-Colors](https://github.com/Bara/Multi-Colors) (compile only).
+- [CollisionHook](https://forums.alliedmods.net/showthread.php?t=197815) (for the [Anti snipe](https://github.com/x07x08/TF2-Dodgeball-Modified/tree/main/Subplugins/AntiSnipe) plugin)
+    * Download it from [here](https://github.com/Adrianilloo/Collisionhook)
 
 # Nuke model
 By default, the plugin uses a custom model for the `"nuke"` rocket class. It can be found here : [AlliedMods Link](https://forums.alliedmods.net/showpost.php?s=8fa72450fa0c4941c927d01d2d6245c9&p=2180141&postcount=350)
