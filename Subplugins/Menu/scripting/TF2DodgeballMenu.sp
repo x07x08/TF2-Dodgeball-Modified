@@ -4,14 +4,18 @@
 #include <sourcemod>
 #include <tf2_stocks>
 #include <adminmenu>
-
 #include <multicolors>
+
 #include <tfdb>
+
+#undef REQUIRE_PLUGIN
+#include <tfdbtrails>
+#define REQUIRE_PLUGIN
 
 #define PLUGIN_NAME        "[TFDB] Admin menu"
 #define PLUGIN_AUTHOR      "x07x08"
 #define PLUGIN_DESCRIPTION "A pretty big menu for dodgeball"
-#define PLUGIN_VERSION     "1.0.1"
+#define PLUGIN_VERSION     "1.0.2"
 #define PLUGIN_URL         "https://github.com/x07x08/TF2-Dodgeball-Modified"
 
 enum RocketClassMenu
@@ -82,6 +86,7 @@ enum struct RocketClass
 	float          SpriteStartWidth;
 	float          SpriteEndWidth;
 	RocketFlags    Flags;
+	TrailFlags     TFlags;
 	float          BeepInterval;
 	char           SpawnSound  [PLATFORM_MAX_PATH];
 	char           BeepSound   [PLATFORM_MAX_PATH];
@@ -143,6 +148,7 @@ int              g_iClientRocketClass     [MAXPLAYERS + 1] = {-1, ...};
 float            g_fClientMenuSelectTime  [MAXPLAYERS + 1];
 RocketClass      g_eSavedRocketClasses    [MAX_ROCKET_CLASSES];
 SpawnerClass     g_eSavedSpawnerClasses   [MAX_SPAWNER_CLASSES];
+bool             g_bTrailsLoaded;
 ConVar           g_hCvarSayHookTimeout;
 
 char strRocketClassMenu[view_as<int>(SizeOfRocketClassMenu) - 1][] =
@@ -221,6 +227,16 @@ public void OnPluginStart()
 		TFDB_OnRocketsConfigExecuted("general.cfg");
 		TFDB_OnRocketsConfigExecuted(strMapFile);
 	}
+}
+
+public void OnLibraryAdded(const char[] strName)
+{
+	if (strcmp(strName, "tfdbtrails") == 0) g_bTrailsLoaded = true;
+}
+
+public void OnLibraryRemoved(const char[] strName)
+{
+	if (strcmp(strName, "tfdbtrails") == 0) g_bTrailsLoaded = false;
 }
 
 public void OnMapEnd()
@@ -1929,6 +1945,7 @@ void ParseClasses(KeyValues kvConfig)
 	{
 		int iIndex = g_iRocketClassCount;
 		RocketFlags iFlags;
+		TrailFlags iTrailFlags;
 		
 		kvConfig.GetSectionName(strName, sizeof(strName));         strcopy(g_eSavedRocketClasses[iIndex].Name, 16, strName);
 		kvConfig.GetString("name", strBuffer, sizeof(strBuffer));  strcopy(g_eSavedRocketClasses[iIndex].LongName, 32, strBuffer);
@@ -1947,7 +1964,7 @@ void ParseClasses(KeyValues kvConfig)
 			strcopy(g_eSavedRocketClasses[iIndex].Trail, sizeof(g_eSavedRocketClasses[].Trail), strBuffer);
 			if (strlen(g_eSavedRocketClasses[iIndex].Trail) != 0)
 			{
-				iFlags |= RocketFlag_CustomTrail;
+				iTrailFlags |= TrailFlag_CustomTrail;
 			}
 		}
 		
@@ -1956,7 +1973,7 @@ void ParseClasses(KeyValues kvConfig)
 			strcopy(g_eSavedRocketClasses[iIndex].Sprite, PLATFORM_MAX_PATH, strBuffer);
 			if (strlen(g_eSavedRocketClasses[iIndex].Sprite) != 0)
 			{
-				iFlags |= RocketFlag_CustomSprite;
+				iTrailFlags |= TrailFlag_CustomSprite;
 				if (kvConfig.GetString("custom color", strBuffer, sizeof(strBuffer)))
 				{
 					strcopy(g_eSavedRocketClasses[iIndex].SpriteColor, sizeof(g_eSavedRocketClasses[].SpriteColor), strBuffer);
@@ -1970,8 +1987,8 @@ void ParseClasses(KeyValues kvConfig)
 		
 		if (kvConfig.GetNum("remove particles", 0))
 		{
-			iFlags |= RocketFlag_RemoveParticles;
-			if (kvConfig.GetNum("replace particles", 0)) iFlags |= RocketFlag_ReplaceParticles;
+			iTrailFlags |= TrailFlag_RemoveParticles;
+			if (kvConfig.GetNum("replace particles", 0)) iTrailFlags |= TrailFlag_ReplaceParticles;
 		}
 		
 		kvConfig.GetString("behaviour", strBuffer, sizeof(strBuffer), "homing");
@@ -2068,6 +2085,7 @@ void ParseClasses(KeyValues kvConfig)
 		if ((hCmds = ParseCommands(strBuffer)) != null) { iFlags |= RocketFlag_OnNoTargetCmd; g_eSavedRocketClasses[iIndex].CmdsOnNoTarget = hCmds; }
 		
 		g_eSavedRocketClasses[iIndex].Flags = iFlags;
+		g_eSavedRocketClasses[iIndex].TFlags = iTrailFlags;
 		g_iRocketClassCount++;
 	}
 	while (kvConfig.GotoNextKey());
@@ -2217,7 +2235,12 @@ bool IsRocketClassMenuDisabled(RocketClassMenu iOption)
 	       iOption == RocketClassMenu_CmdsOnDeflect  ||
 	       iOption == RocketClassMenu_CmdsOnKill     ||
 	       iOption == RocketClassMenu_CmdsOnExplode  ||
-	       iOption == RocketClassMenu_CmdsOnNoTarget;
+	       iOption == RocketClassMenu_CmdsOnNoTarget ||
+	       (!g_bTrailsLoaded &&
+	       (iOption == RocketClassMenu_SpriteColor    ||
+	        iOption == RocketClassMenu_SpriteEndWidth ||
+	        iOption == RocketClassMenu_SpriteLifetime ||
+	        iOption == RocketClassMenu_SpriteStartWidth));
 }
 
 // https://github.com/JoinedSenses/SM-JSLib/blob/main/jslib.inc

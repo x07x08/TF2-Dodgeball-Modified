@@ -1,24 +1,27 @@
 #pragma semicolon 1
 #pragma newdecls required
 
-#define PLUGIN_AUTHOR "x07x08"
-#define PLUGIN_VERSION "1.1.0"
-
 #include <sourcemod>
 #include <multicolors>
+
+#define PLUGIN_NAME        "[TFDB] Print & replace client indexes"
+#define PLUGIN_AUTHOR      "x07x08"
+#define PLUGIN_DESCRIPTION "Does what it says"
+#define PLUGIN_VERSION     "1.1.1"
+#define PLUGIN_URL         "https://github.com/x07x08/TF2-Dodgeball-Modified"
 
 char g_strCmdBuffer[255];
 char g_strExplodeBuffer[32][255];
 
 Regex g_hBracketsPattern;
 
-public Plugin myinfo = 
+public Plugin myinfo =
 {
-	name = "[TFDB] Print & replace client indexes",
-	author = PLUGIN_AUTHOR,
-	description = "Does what it says",
-	version = PLUGIN_VERSION,
-	url = "https://github.com/x07x08/TF2-Dodgeball-Modified"
+	name        = PLUGIN_NAME,
+	author      = PLUGIN_AUTHOR,
+	description = PLUGIN_DESCRIPTION,
+	version     = PLUGIN_VERSION,
+	url         = PLUGIN_URL
 };
 
 public void OnPluginStart()
@@ -41,19 +44,16 @@ public Action CmdPrintMessage(int iClient, int iArgs)
 		TrimString(g_strCmdBuffer);
 		
 		int iNumStrings = ExplodeString(g_strCmdBuffer, "##", g_strExplodeBuffer, sizeof(g_strExplodeBuffer), sizeof(g_strExplodeBuffer[]));
+		int iIndex;
 		
-		for (int i = 0; i < iNumStrings; i++)
+		for (int iPos = 0; iPos < iNumStrings; iPos++)
 		{
-			if (!g_strExplodeBuffer[i][0]) { continue; }
+			if (!g_strExplodeBuffer[iPos][0]) continue;
 			
-			if (String_IsNumeric(g_strExplodeBuffer[i]))
+			if ((StringToIntEx(g_strExplodeBuffer[iPos], iIndex) == strlen(g_strExplodeBuffer[iPos])) &&
+			    ((iIndex >= 1) && (iIndex <= MaxClients) && IsClientInGame(iIndex)))
 			{
-				int iIndex = StringToInt(g_strExplodeBuffer[i]);
-				
-				if ((iIndex >= 1) && (iIndex <= MaxClients) && IsClientInGame(iIndex))
-				{
-					FormatEx(g_strExplodeBuffer[i], sizeof(g_strExplodeBuffer[]), "%N", iIndex);
-				}
+				FormatEx(g_strExplodeBuffer[iPos], sizeof(g_strExplodeBuffer[]), "%N", iIndex);
 			}
 		}
 		
@@ -83,19 +83,16 @@ public Action CmdPrintMessageClient(int iClient, int iArgs)
 		TrimString(g_strCmdBuffer[iLength]);
 		
 		int iNumStrings = ExplodeString(g_strCmdBuffer[iLength], "##", g_strExplodeBuffer, sizeof(g_strExplodeBuffer), sizeof(g_strExplodeBuffer[]));
+		int iIndex;
 		
-		for (int i = 0; i < iNumStrings; i++)
+		for (int iPos = 0; iPos < iNumStrings; iPos++)
 		{
-			if (!g_strExplodeBuffer[i][0]) { continue; }
+			if (!g_strExplodeBuffer[iPos][0]) continue;
 			
-			if (String_IsNumeric(g_strExplodeBuffer[i]))
+			if ((StringToIntEx(g_strExplodeBuffer[iPos], iIndex) == strlen(g_strExplodeBuffer[iPos])) &&
+			    ((iIndex >= 1) && (iIndex <= MaxClients) && IsClientInGame(iIndex)))
 			{
-				int iIndex = StringToInt(g_strExplodeBuffer[i]);
-				
-				if ((iIndex >= 1) && (iIndex <= MaxClients) && IsClientInGame(iIndex))
-				{
-					FormatEx(g_strExplodeBuffer[i], sizeof(g_strExplodeBuffer[]), "%N", iIndex);
-				}
+				FormatEx(g_strExplodeBuffer[iPos], sizeof(g_strExplodeBuffer[]), "%N", iIndex);
 			}
 		}
 		
@@ -138,17 +135,9 @@ public Action CmdPrintPhrase(int iClient, int iArgs)
 			{
 				TrimString(g_strExplodeBuffer[iIndex]);
 				
-				if (String_IsNumeric(g_strExplodeBuffer[iIndex]))
+				if ((StringToIntEx(g_strExplodeBuffer[iIndex], aArgs[iIndex]) == strlen(g_strExplodeBuffer[iIndex])) ||
+				    (StringToFloatEx(g_strExplodeBuffer[iIndex], aArgs[iIndex]) == strlen(g_strExplodeBuffer[iIndex])))
 				{
-					if (IsStringNumber(g_strExplodeBuffer[iIndex]))
-					{
-						aArgs[iIndex] = StringToInt(g_strExplodeBuffer[iIndex]);
-					}
-					else
-					{
-						aArgs[iIndex] = StringToFloat(g_strExplodeBuffer[iIndex]);
-					}
-					
 					g_strExplodeBuffer[iIndex] = "\0";
 				}
 			}
@@ -191,17 +180,9 @@ public Action CmdPrintPhraseClient(int iClient, int iArgs)
 			{
 				TrimString(g_strExplodeBuffer[iIndex]);
 				
-				if (String_IsNumeric(g_strExplodeBuffer[iIndex]))
+				if ((StringToIntEx(g_strExplodeBuffer[iIndex], aArgs[iIndex]) == strlen(g_strExplodeBuffer[iIndex])) ||
+				    (StringToFloatEx(g_strExplodeBuffer[iIndex], aArgs[iIndex]) == strlen(g_strExplodeBuffer[iIndex])))
 				{
-					if (IsStringNumber(g_strExplodeBuffer[iIndex]))
-					{
-						aArgs[iIndex] = StringToInt(g_strExplodeBuffer[iIndex]);
-					}
-					else
-					{
-						aArgs[iIndex] = StringToFloat(g_strExplodeBuffer[iIndex]);
-					}
-					
 					g_strExplodeBuffer[iIndex] = "\0";
 				}
 			}
@@ -308,56 +289,4 @@ any[] HandleBadConversion(const char[][] strArgs, const any[] aArgs, int iIndex)
 	any aTemp[1][1]; aTemp[0][0] = aArgs[iIndex];
 	
 	return !strArgs[iIndex][0] ? aTemp[0] : strArgs[iIndex];
-}
-
-// Smlib stock
-
-stock bool String_IsNumeric(const char[] str)
-{
-	int x=0;
-	int dotsFound=0;
-	int numbersFound=0;
-
-	if (str[x] == '+' || str[x] == '-') {
-		x++;
-	}
-
-	while (str[x] != '\0') {
-
-		if (IsCharNumeric(str[x])) {
-			numbersFound++;
-		}
-		else if (str[x] == '.') {
-			dotsFound++;
-
-			if (dotsFound > 1) {
-				return false;
-			}
-		}
-		else {
-			return false;
-		}
-
-		x++;
-	}
-
-	if (!numbersFound) {
-		return false;
-	}
-
-	return true;
-}
-
-// https://github.com/alliedmodders/sourcemod/pull/1224
-
-stock bool IsStringNumber(const char[] str, int nBase=10)
-{
-	int result;
-	return StringToIntEx(str, result, nBase) == strlen(str);
-}
-
-stock bool IsStringFloat(const char[] str)
-{
-	float result;
-	return StringToFloatEx(str, result) == strlen(str);
 }

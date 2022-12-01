@@ -7,17 +7,23 @@
 
 #include <tfdb>
 
+#define PLUGIN_NAME        "[TFDB] Airblast push prevention"
+#define PLUGIN_AUTHOR      "BloodyNightmare, Mitchell, edited by x07x08"
+#define PLUGIN_DESCRIPTION "Prevents users from pushing each other by airblasting."
+#define PLUGIN_VERSION     "1.2.1"
+#define PLUGIN_URL         "https://github.com/x07x08/TF2-Dodgeball-Modified"
+
 ConVar g_hCvarCommandEnabled;
 bool   g_bClientEnabled[MAXPLAYERS + 1] = {true, ...};
 bool   g_bLoaded;
 
 public Plugin myinfo =
 {
-	name        = "[TFDB] Airblast push prevention",
-	author      = "BloodyNightmare, Mitchell, edited by x07x08",
-	description = "Prevents users from pushing each other by airblasting.",
-	version     = "1.2.0",
-	url         = "https://github.com/x07x08/TF2-Dodgeball-Modified"
+	name        = PLUGIN_NAME,
+	author      = PLUGIN_AUTHOR,
+	description = PLUGIN_DESCRIPTION,
+	version     = PLUGIN_VERSION,
+	url         = PLUGIN_URL
 };
 
 public void OnPluginStart()
@@ -39,7 +45,7 @@ public void OnPluginStart()
 			SDKHook(iClient, SDKHook_WeaponCanUse, WeaponCanUseCallback);
 			
 			// Enabled by default
-			if (IsPlayerAlive(iClient)) SetEntityFlags(iClient, GetEntityFlags(iClient) | FL_NOTARGET);
+			SetEntityFlags(iClient, GetEntityFlags(iClient) | FL_NOTARGET);
 		}
 	}
 }
@@ -71,11 +77,11 @@ public void OnMapEnd()
 public void OnPlayerSpawn(Event hEvent, char[] strEventName, bool bDontBroadcast)
 {
 	int iClient = GetClientOfUserId(hEvent.GetInt("userid"));
-	int iFlags  = GetEntityFlags(iClient);
 	
-	if ((GetClientTeam(iClient) >= 2) && g_bClientEnabled[iClient])
+	if (g_bClientEnabled[iClient])
 	{
-		SetEntityFlags(iClient, iFlags | FL_NOTARGET);
+		// Sound issue.
+		SetEntityFlags(iClient, GetEntityFlags(iClient) | FL_NOTARGET);
 	}
 }
 
@@ -175,9 +181,6 @@ public void CvarCommandCallback(ConVar hConVar, const char[] strOldValue, const 
 		
 		g_bClientEnabled[iClient] = true;
 		
-		if (IsPlayerAlive(iClient))
-		{
-			SetEntityFlags(iClient, GetEntityFlags(iClient) | FL_NOTARGET);
-		}
+		if (IsPlayerAlive(iClient)) SetEntityFlags(iClient, GetEntityFlags(iClient) | FL_NOTARGET);
 	}
 }

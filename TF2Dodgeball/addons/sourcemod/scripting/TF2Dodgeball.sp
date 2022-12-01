@@ -20,7 +20,7 @@
 // ---- Plugin-related constants ---------------------------------------------------
 #define PLUGIN_NAME             "[TF2] Dodgeball"
 #define PLUGIN_AUTHOR           "Damizean, edited by x07x08"
-#define PLUGIN_VERSION          "1.8.0"
+#define PLUGIN_VERSION          "1.9.0"
 #define PLUGIN_CONTACT          "https://github.com/x07x08/TF2-Dodgeball-Modified"
 
 // ---- Flags and types constants --------------------------------------------------
@@ -32,17 +32,6 @@ enum Musics
     Music_Gameplay,
     SizeOfMusicsArray
 }
-
-enum ParticleAttachmentType
-{
-    PATTACH_ABSORIGIN = 0,    // Create at absorigin, but don't follow
-    PATTACH_ABSORIGIN_FOLLOW, // Create at absorigin, and update to follow the entity
-    PATTACH_CUSTOMORIGIN,     // Create at a custom origin, but don't follow
-    PATTACH_POINT,            // Create on attachment point, but don't follow
-    PATTACH_POINT_FOLLOW,     // Create on attachment point, and update to follow the entity
-    PATTACH_WORLDORIGIN,      // Used for control points that don't attach to an entity
-    PATTACH_ROOTBONE_FOLLOW   // Create at the root bone of the entity, and update to follow
-};
 
 // *********************************************************************************
 // VARIABLES
@@ -71,9 +60,6 @@ int    g_iLastDeadTeam;           // The team of the last dead client. If none, 
 int    g_iLastDeadClient;         // The last dead client. If none, it's a random client.
 int    g_iPlayerCount;
 float  g_fTickModifier;
-int    g_iEmptyModel;
-bool   g_bClientHideTrails [MAXPLAYERS + 1];
-bool   g_bClientHideSprites[MAXPLAYERS + 1];
 int    g_iLastStealer;
 
 eRocketSteal bStealArray[MAXPLAYERS + 1];
@@ -89,9 +75,6 @@ char g_strWebPlayerUrl[256];
 // Rockets
 bool        g_bRocketIsValid            [MAX_ROCKETS];
 int         g_iRocketEntity             [MAX_ROCKETS];
-int         g_iRocketFakeEntity         [MAX_ROCKETS];
-int         g_iRocketRedCriticalEntity  [MAX_ROCKETS];
-int         g_iRocketBluCriticalEntity  [MAX_ROCKETS];
 int         g_iRocketTarget             [MAX_ROCKETS];
 int         g_iRocketClass              [MAX_ROCKETS];
 RocketFlags g_iRocketFlags              [MAX_ROCKETS];
@@ -112,12 +95,6 @@ char           g_strRocketClassName           [MAX_ROCKET_CLASSES][16];
 char           g_strRocketClassLongName       [MAX_ROCKET_CLASSES][32];
 BehaviourTypes g_iRocketClassBehaviour        [MAX_ROCKET_CLASSES];
 char           g_strRocketClassModel          [MAX_ROCKET_CLASSES][PLATFORM_MAX_PATH];
-char           g_strRocketClassTrail          [MAX_ROCKET_CLASSES][PLATFORM_MAX_PATH];
-char           g_strRocketClassSprite         [MAX_ROCKET_CLASSES][PLATFORM_MAX_PATH];
-char           g_strRocketClassSpriteColor    [MAX_ROCKET_CLASSES][16];
-float          g_fRocketClassSpriteLifetime   [MAX_ROCKET_CLASSES];
-float          g_fRocketClassSpriteStartWidth [MAX_ROCKET_CLASSES];
-float          g_fRocketClassSpriteEndWidth   [MAX_ROCKET_CLASSES];
 RocketFlags    g_iRocketClassFlags            [MAX_ROCKET_CLASSES];
 float          g_fRocketClassBeepInterval     [MAX_ROCKET_CLASSES];
 char           g_strRocketClassSpawnSound     [MAX_ROCKET_CLASSES][PLATFORM_MAX_PATH];
@@ -374,9 +351,6 @@ public APLRes AskPluginLoad2(Handle hMyself, bool bLate, char[] strError, int iE
 	CreateNative("TFDB_GetLastDeadClient", Native_GetLastDeadClient);
 	CreateNative("TFDB_GetLastStealer", Native_GetLastStealer);
 	
-	CreateNative("TFDB_GetRocketFakeEntity", Native_GetRocketFakeEntity);
-	CreateNative("TFDB_SetRocketFakeEntity", Native_SetRocketFakeEntity);
-	
 	CreateNative("TFDB_GetRocketSpeed", Native_GetRocketSpeed);
 	CreateNative("TFDB_SetRocketSpeed", Native_SetRocketSpeed);
 	
@@ -407,24 +381,6 @@ public APLRes AskPluginLoad2(Handle hMyself, bool bLate, char[] strError, int iE
 	
 	CreateNative("TFDB_GetRocketClassModel", Native_GetRocketClassModel);
 	CreateNative("TFDB_SetRocketClassModel", Native_SetRocketClassModel);
-	
-	CreateNative("TFDB_GetRocketClassTrail", Native_GetRocketClassTrail);
-	CreateNative("TFDB_SetRocketClassTrail", Native_SetRocketClassTrail);
-	
-	CreateNative("TFDB_GetRocketClassSprite", Native_GetRocketClassSprite);
-	CreateNative("TFDB_SetRocketClassSprite", Native_SetRocketClassSprite);
-	
-	CreateNative("TFDB_GetRocketClassSpriteColor", Native_GetRocketClassSpriteColor);
-	CreateNative("TFDB_SetRocketClassSpriteColor", Native_SetRocketClassSpriteColor);
-	
-	CreateNative("TFDB_GetRocketClassSpriteLifetime", Native_GetRocketClassSpriteLifetime);
-	CreateNative("TFDB_SetRocketClassSpriteLifetime", Native_SetRocketClassSpriteLifetime);
-	
-	CreateNative("TFDB_GetRocketClassSpriteStartWidth", Native_GetRocketClassSpriteStartWidth);
-	CreateNative("TFDB_SetRocketClassSpriteStartWidth", Native_SetRocketClassSpriteStartWidth);
-	
-	CreateNative("TFDB_GetRocketClassSpriteEndWidth", Native_GetRocketClassSpriteEndWidth);
-	CreateNative("TFDB_SetRocketClassSpriteEndWidth", Native_SetRocketClassSpriteEndWidth);
 	
 	CreateNative("TFDB_GetRocketClassBeepInterval", Native_GetRocketClassBeepInterval);
 	CreateNative("TFDB_SetRocketClassBeepInterval", Native_SetRocketClassBeepInterval);
@@ -598,9 +554,6 @@ void EnableDodgeBall()
         HookEvent("teamplay_broadcast_audio", OnBroadcastAudio, EventHookMode_Pre);
         HookEvent("object_deflected", OnObjectDeflected);
         
-        g_iEmptyModel = PrecacheModel("models/empty.mdl", true);
-        PrecacheParticleSystem("rockettrail_fire"); // Why isn't this particle already precached?
-        
         AddMultiTargetFilter("@stealer", MLTargetFilterStealer, "last stealer", false);
         AddMultiTargetFilter("@!stealer", MLTargetFilterStealer, "non last stealer", false);
         
@@ -633,8 +586,6 @@ void EnableDodgeBall()
             if (TestFlags(iFlags, RocketFlag_CustomSpawnSound)) PrecacheSoundEx(g_strRocketClassSpawnSound[i], true, true);
             if (TestFlags(iFlags, RocketFlag_CustomBeepSound))  PrecacheSoundEx(g_strRocketClassBeepSound[i], true, true);
             if (TestFlags(iFlags, RocketFlag_CustomAlertSound)) PrecacheSoundEx(g_strRocketClassAlertSound[i], true, true);
-            if (TestFlags(iFlags, RocketFlag_CustomTrail))      PrecacheParticleSystem(g_strRocketClassTrail[i]);
-            if (TestFlags(iFlags, RocketFlag_CustomSprite))     PrecacheTrail(g_strRocketClassSprite[i]);
         }
         
         // Execute enable config file
@@ -708,9 +659,6 @@ public void OnClientDisconnect(int iClient)
 	{
 		g_iLastStealer = 0;
 	}
-	
-	g_bClientHideTrails [iClient] = false;
-	g_bClientHideSprites[iClient] = false;
 }
 
 //   ___                     _           
@@ -970,33 +918,6 @@ public void OnObjectDeflected(Event hEvent, char[] strEventName, bool bDontBroad
 			g_iRocketBounces[iIndex] = 0;
 		}
 		
-		if (g_iRocketFlags[iIndex] & RocketFlag_ReplaceParticles)
-		{
-			bool bCritical = !!GetEntProp(iEntity, Prop_Send, "m_bCritical");
-			
-			if (bCritical)
-			{
-				int iRedCriticalEntity = EntRefToEntIndex(g_iRocketRedCriticalEntity[iIndex]);
-				int iBluCriticalEntity = EntRefToEntIndex(g_iRocketBluCriticalEntity[iIndex]);
-				
-				if (iRedCriticalEntity != -1 && iBluCriticalEntity != -1)
-				{
-					int iTeam = GetEntProp(iEntity, Prop_Send, "m_iTeamNum", 1);
-					
-					if (iTeam == view_as<int>(TFTeam_Red))
-					{
-						AcceptEntityInput(iBluCriticalEntity, "Stop");
-						AcceptEntityInput(iRedCriticalEntity, "Start");
-					}
-					else if (iTeam == view_as<int>(TFTeam_Blue))
-					{
-						AcceptEntityInput(iBluCriticalEntity, "Start");
-						AcceptEntityInput(iRedCriticalEntity, "Stop");
-					}
-				}
-			}
-		}
-		
 		if (g_iRocketFlags[iIndex] & RocketFlag_IsNeutral)
 		{
 			SetEntProp(iEntity, Prop_Send, "m_iTeamNum", 1, 1);
@@ -1149,181 +1070,11 @@ void CreateRocket(int iSpawnerEntity, int iSpawnerClass, int iTeam, int iClass =
             SetEntDataFloat(iEntity, FindSendPropInfo("CTFProjectile_Rocket", "m_iDeflected") + 4, CalculateRocketDamage(iClass, fModifier), true);
             DispatchSpawn(iEntity);
             
-            if (TestFlags(iFlags, RocketFlag_RemoveParticles))
-            {
-                int iOtherEntity = CreateEntityByName("prop_dynamic");
-                if (iOtherEntity && IsValidEntity(iOtherEntity))
-                {
-                    SetEntProp(iEntity, Prop_Send, "m_nModelIndexOverrides", g_iEmptyModel);
-                    
-                    SetEntityModel(iOtherEntity, "models/weapons/w_models/w_rocket.mdl");
-                    SetEntProp(iOtherEntity, Prop_Send, "m_CollisionGroup", 0);    // COLLISION_GROUP_NONE
-                    SetEntProp(iOtherEntity, Prop_Send, "m_usSolidFlags", 0x0004); // FSOLID_NOT_SOLID
-                    SetEntProp(iOtherEntity, Prop_Send, "m_nSolidType", 0);        // SOLID_NONE
-                    TeleportEntity(iOtherEntity, fPosition, fAngles, view_as<float>({0.0, 0.0, 0.0}));
-                    g_iRocketFakeEntity[iIndex] = EntIndexToEntRef(iOtherEntity);
-                    DispatchSpawn(iOtherEntity);
-                    
-                    SetVariantString("!activator");
-                    AcceptEntityInput(iOtherEntity, "SetParent", iEntity, iOtherEntity);
-                    
-                    if (TestFlags(iFlags, RocketFlag_ReplaceParticles))
-                    {
-                        // If the rocket gets instantly destroyed, the temp ent still gets sent. Why?
-                        CreateTempParticle("rockettrail_fire", fPosition, NULL_VECTOR, fAngles, iOtherEntity, PATTACH_POINT, 1);
-                        
-                        bool bCritical = !!GetEntProp(iEntity, Prop_Send, "m_bCritical");
-                        if (bCritical)
-                        {
-                            int iRedCriticalEntity = CreateEntityByName("info_particle_system");
-                            int iBluCriticalEntity = CreateEntityByName("info_particle_system");
-                            
-                            if ((iRedCriticalEntity && IsValidEdict(iRedCriticalEntity)) && (iBluCriticalEntity && IsValidEdict(iBluCriticalEntity)))
-                            {
-                                TeleportEntity(iRedCriticalEntity, fPosition, fAngles, view_as<float>({0.0, 0.0, 0.0}));
-                                TeleportEntity(iBluCriticalEntity, fPosition, fAngles, view_as<float>({0.0, 0.0, 0.0}));
-                                
-                                DispatchKeyValue(iRedCriticalEntity, "effect_name", "critical_rocket_red");
-                                DispatchKeyValue(iBluCriticalEntity, "effect_name", "critical_rocket_blue");
-                                
-                                g_iRocketRedCriticalEntity[iIndex] = EntIndexToEntRef(iRedCriticalEntity);
-                                g_iRocketBluCriticalEntity[iIndex] = EntIndexToEntRef(iBluCriticalEntity);
-                                
-                                DispatchSpawn(iRedCriticalEntity);
-                                DispatchSpawn(iBluCriticalEntity);
-                                
-                                ActivateEntity(iRedCriticalEntity);
-                                ActivateEntity(iBluCriticalEntity);
-                                
-                                SetVariantString("!activator");
-                                AcceptEntityInput(iRedCriticalEntity, "SetParent", iOtherEntity, iRedCriticalEntity);
-                                
-                                SetVariantString("!activator");
-                                AcceptEntityInput(iBluCriticalEntity, "SetParent", iOtherEntity, iBluCriticalEntity);
-                                
-                                SetVariantString("trail");
-                                AcceptEntityInput(iRedCriticalEntity, "SetParentAttachment", iOtherEntity, iRedCriticalEntity);
-                                
-                                SetVariantString("trail");
-                                AcceptEntityInput(iBluCriticalEntity, "SetParentAttachment", iOtherEntity, iBluCriticalEntity);
-                                
-                                if (iTeam == view_as<int>(TFTeam_Red))
-                                {
-                                    AcceptEntityInput(iRedCriticalEntity, "Start");
-                                }
-                                else if (iTeam == view_as<int>(TFTeam_Blue))
-                                {
-                                    AcceptEntityInput(iBluCriticalEntity, "Start");
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            
-            if (TestFlags(iFlags, RocketFlag_CustomTrail))
-            {
-                int iTrailEntity = CreateEntityByName("info_particle_system");
-                if (iTrailEntity && IsValidEdict(iTrailEntity))
-                {
-                    TeleportEntity(iTrailEntity, fPosition, fAngles, view_as<float>({0.0, 0.0, 0.0}));
-                    DispatchKeyValue(iTrailEntity, "effect_name", g_strRocketClassTrail[iClass]);
-                    DispatchSpawn(iTrailEntity);
-                    ActivateEntity(iTrailEntity);
-                    
-                    if (TestFlags(iFlags, RocketFlag_RemoveParticles))
-                    {
-                        int iOtherEntity = EntRefToEntIndex(g_iRocketFakeEntity[iIndex]);
-                        
-                        if (iOtherEntity != -1)
-                        {
-                            SetVariantString("!activator");
-                            AcceptEntityInput(iTrailEntity, "SetParent", iOtherEntity, iTrailEntity);
-                            
-                            SetVariantString("trail");
-                            AcceptEntityInput(iTrailEntity, "SetParentAttachment", iOtherEntity, iTrailEntity);
-                            
-                            AcceptEntityInput(iTrailEntity, "Start");
-                        }
-                    }
-                    else
-                    {
-                        SetVariantString("!activator");
-                        AcceptEntityInput(iTrailEntity, "SetParent", iEntity, iTrailEntity);
-                        
-                        SetVariantString("trail");
-                        AcceptEntityInput(iTrailEntity, "SetParentAttachment", iEntity, iTrailEntity);
-                        
-                        AcceptEntityInput(iTrailEntity, "Start");
-                    }
-                    
-                    // This allows SetTransmit to work on info_particle_system
-                    SetEdictFlags(iTrailEntity, (GetEdictFlags(iTrailEntity) & ~FL_EDICT_ALWAYS));
-                    SDKHook(iTrailEntity, SDKHook_SetTransmit, TrailSetTransmit);
-                }
-            }
-            
-            if (TestFlags(iFlags, RocketFlag_CustomSprite))
-            {
-                int iSpriteEntity = CreateEntityByName("env_spritetrail");
-                if (iSpriteEntity && IsValidEntity(iSpriteEntity))
-                {
-                    TeleportEntity(iSpriteEntity, fPosition, fAngles, view_as<float>({0.0, 0.0, 0.0}));
-                    
-                    static char strSpritePath[PLATFORM_MAX_PATH];
-                    FormatEx(strSpritePath, PLATFORM_MAX_PATH, "%s.vmt", g_strRocketClassSprite[iClass]);
-                    
-                    DispatchKeyValue(iSpriteEntity, "spritename", strSpritePath);
-                    DispatchKeyValueFloat(iSpriteEntity, "lifetime", g_fRocketClassSpriteLifetime[iClass] != 0 ? g_fRocketClassSpriteLifetime[iClass] : 1.0);
-                    DispatchKeyValueFloat(iSpriteEntity, "endwidth", g_fRocketClassSpriteEndWidth[iClass] != 0 ? g_fRocketClassSpriteEndWidth[iClass] : 15.0);
-                    DispatchKeyValueFloat(iSpriteEntity, "startwidth", g_fRocketClassSpriteStartWidth[iClass] != 0 ? g_fRocketClassSpriteStartWidth[iClass] : 6.0);
-                    DispatchKeyValue(iSpriteEntity, "rendercolor", strlen(g_strRocketClassSpriteColor[iClass]) != 0 ? g_strRocketClassSpriteColor[iClass] : "255 255 255");
-                    DispatchKeyValue(iSpriteEntity, "renderamt", "255");
-                    DispatchKeyValue(iSpriteEntity, "rendermode", "3");
-                    SetEntPropFloat(iSpriteEntity, Prop_Send, "m_flTextureRes", 0.05);
-                    
-                    if (TestFlags(iFlags, RocketFlag_RemoveParticles))
-                    {
-                        int iOtherEntity = EntRefToEntIndex(g_iRocketFakeEntity[iIndex]);
-                        
-                        if (iOtherEntity != -1)
-                        {
-                            SetVariantString("!activator");
-                            AcceptEntityInput(iSpriteEntity, "SetParent", iOtherEntity, iSpriteEntity);
-                            
-                            SetVariantString("trail");
-                            AcceptEntityInput(iSpriteEntity, "SetParentAttachment", iOtherEntity, iSpriteEntity);
-                        }
-                    }
-                    else
-                    {
-                        SetVariantString("!activator");
-                        AcceptEntityInput(iSpriteEntity, "SetParent", iEntity, iSpriteEntity);
-                        
-                        SetVariantString("trail");
-                        AcceptEntityInput(iSpriteEntity, "SetParentAttachment", iEntity, iSpriteEntity);
-                    }
-                    
-                    DispatchSpawn(iSpriteEntity);
-                    SDKHook(iSpriteEntity, SDKHook_SetTransmit, SpriteSetTransmit);
-                }
-            }
-            
             // Apply custom model, if specified on the flags.
             if (TestFlags(iFlags, RocketFlag_CustomModel))
             {
                 SetEntityModel(iEntity, g_strRocketClassModel[iClass]);
                 UpdateRocketSkin(iEntity, iTeam, TestFlags(iFlags, RocketFlag_IsNeutral));
-                
-                if (TestFlags(iFlags, RocketFlag_RemoveParticles))
-                {
-                    int iOtherEntity = EntRefToEntIndex(g_iRocketFakeEntity[iIndex]);
-                    if (iOtherEntity != -1)
-                    {
-                        SetEntityModel(iOtherEntity, g_strRocketClassModel[iClass]);
-                        UpdateRocketSkin(iOtherEntity, iTeam, TestFlags(iFlags, RocketFlag_IsNeutral));
-                    }
-                }
             }
             
             // Execute commands on spawn.
@@ -1347,22 +1098,6 @@ void CreateRocket(int iSpawnerEntity, int iSpawnerClass, int iTeam, int iClass =
             Forward_OnRocketCreated(iIndex, iEntity);
         }
     }
-}
-
-public Action TrailSetTransmit(int iEntity, int iClient)
-{
-	if (IsValidEntity(iEntity) && (GetEdictFlags(iEntity) & FL_EDICT_ALWAYS))
-	{
-		// Stops the game from setting back the flag
-		SetEdictFlags(iEntity, (GetEdictFlags(iEntity) ^ FL_EDICT_ALWAYS));
-	}
-	
-	return g_bClientHideTrails[iClient] ? Plugin_Handled : Plugin_Continue;
-}
-
-public Action SpriteSetTransmit(int iEntity, int iClient)
-{
-	return g_bClientHideSprites[iClient] ? Plugin_Handled : Plugin_Continue;
 }
 
 /* DestroyRocket()
@@ -1485,15 +1220,6 @@ void HomingRocketThink(int iIndex)
             GetAngleVectors(fViewAngles, fDirection, NULL_VECTOR, NULL_VECTOR);
             CopyVectors(fDirection, g_fRocketDirection[iIndex]);
             UpdateRocketSkin(iEntity, iTeam, TestFlags(iFlags, RocketFlag_IsNeutral));
-            
-            if (TestFlags(iFlags, RocketFlag_RemoveParticles))
-            {
-                int iOtherEntity = EntRefToEntIndex(g_iRocketFakeEntity[iIndex]);
-                if (iOtherEntity != -1)
-                {
-                    UpdateRocketSkin(iOtherEntity, iTeam, TestFlags(iFlags, RocketFlag_IsNeutral));
-                }
-            }
         }
         
         g_fRocketLastDeflectionTime[iIndex] = GetGameTime();
@@ -1520,7 +1246,7 @@ void HomingRocketThink(int iIndex)
             if (!IsValidClient(iTarget, true))
             {
                 int iOwner = iTarget;
-                iTarget = SelectTarget(iTargetTeam);
+                iTarget = SelectTarget(iTargetTeam, iIndex);
                 if (!IsValidClient(iTarget, true)) return;
                 g_iRocketTarget[iIndex] = EntIndexToEntRef(iTarget);
                 EmitRocketSound(RocketSound_Alert, iClass, iEntity, iTarget, iFlags);
@@ -1689,7 +1415,7 @@ void RocketLegacyThink(int iIndex)
     if (!IsValidClient(iTarget, true))
     {
         int iOwner = iTarget;
-        iTarget = SelectTarget(iTargetTeam);
+        iTarget = SelectTarget(iTargetTeam, iIndex);
         if (!IsValidClient(iTarget, true)) return;
         g_iRocketTarget[iIndex] = EntIndexToEntRef(iTarget);
         EmitRocketSound(RocketSound_Alert, iClass, iEntity, iTarget, iFlags);
@@ -1724,15 +1450,6 @@ void RocketLegacyThink(int iIndex)
             if (!(iFlags & RocketFlag_CanBeStolen))
             {
                 CheckStolenRocket(iClient, iIndex);
-            }
-            
-            if (TestFlags(iFlags, RocketFlag_RemoveParticles))
-            {
-                int iOtherEntity = EntRefToEntIndex(g_iRocketFakeEntity[iIndex]);
-                if (iOtherEntity != -1)
-                {
-                    UpdateRocketSkin(iOtherEntity, iTeam, TestFlags(iFlags, RocketFlag_IsNeutral));
-                }
             }
         }
         
@@ -2104,8 +1821,6 @@ void RegisterCommands()
 {
     RegServerCmd("tf_dodgeball_explosion", CmdExplosion);
     RegServerCmd("tf_dodgeball_shockwave", CmdShockwave);
-    RegConsoleCmd("sm_rockettrails", CmdHideTrails);
-    RegConsoleCmd("sm_rocketspritetrails", CmdHideSprites);
 }
 
 /* CmdExplosion()
@@ -2203,50 +1918,6 @@ public Action CmdShockwave(int iArgs)
     }
     
     return Plugin_Handled;
-}
-
-public Action CmdHideTrails(int iClient, int iArgs)
-{
-	if (iClient == 0)
-	{
-		ReplyToCommand(iClient, "Command is in-game only.");
-		return Plugin_Handled;
-	}
-	
-	if (!iArgs && g_bEnabled)
-	{
-		g_bClientHideTrails[iClient] = !g_bClientHideTrails[iClient];
-		
-		CPrintToChat(iClient, "%t", g_bClientHideTrails[iClient] ? "Command_DBHideParticles_Hidden" : "Command_DBHideParticles_Visible");
-	}
-	else
-	{
-		CReplyToCommand(iClient, "%t", g_bEnabled ? "Command_DBHideParticles_Usage" : "Command_Disabled");
-	}
-	
-	return Plugin_Handled;
-}
-
-public Action CmdHideSprites(int iClient, int iArgs)
-{
-	if (iClient == 0)
-	{
-		ReplyToCommand(iClient, "Command is in-game only.");
-		return Plugin_Handled;
-	}
-	
-	if (!iArgs && g_bEnabled)
-	{
-		g_bClientHideSprites[iClient] = !g_bClientHideSprites[iClient];
-		
-		CPrintToChat(iClient, "%t", g_bClientHideSprites[iClient] ? "Command_DBHideSprites_Hidden" : "Command_DBHideSprites_Visible");
-	}
-	else
-	{
-		CReplyToCommand(iClient, "%t", g_bEnabled ? "Command_DBHideSprites_Usage" : "Command_Disabled");
-	}
-	
-	return Plugin_Handled;
 }
 
 /* ExecuteCommands()
@@ -2372,38 +2043,6 @@ void ParseClasses(KeyValues kvConfig)
                 iFlags |= RocketFlag_CustomModel;
                 if (kvConfig.GetNum("is animated", 0)) iFlags |= RocketFlag_IsAnimated;
             }
-        }
-        
-        if (kvConfig.GetString("trail particle", strBuffer, sizeof(strBuffer)))
-        {
-            strcopy(g_strRocketClassTrail[iIndex], sizeof(g_strRocketClassTrail[]), strBuffer);
-            if (strlen(g_strRocketClassTrail[iIndex]) != 0)
-            {
-                iFlags |= RocketFlag_CustomTrail;
-            }
-        }
-        
-        if (kvConfig.GetString("trail sprite", strBuffer, sizeof(strBuffer)))
-        {
-            strcopy(g_strRocketClassSprite[iIndex], PLATFORM_MAX_PATH, strBuffer);
-            if (strlen(g_strRocketClassSprite[iIndex]) != 0)
-            {
-                iFlags |= RocketFlag_CustomSprite;
-                if (kvConfig.GetString("custom color", strBuffer, sizeof(strBuffer)))
-                {
-                    strcopy(g_strRocketClassSpriteColor[iIndex], sizeof(g_strRocketClassSpriteColor[]), strBuffer);
-                }
-                
-                g_fRocketClassSpriteLifetime[iIndex]   = kvConfig.GetFloat("sprite lifetime");
-                g_fRocketClassSpriteStartWidth[iIndex] = kvConfig.GetFloat("sprite start width");
-                g_fRocketClassSpriteEndWidth[iIndex]   = kvConfig.GetFloat("sprite end width");
-            }
-        }
-        
-        if (kvConfig.GetNum("remove particles", 0))
-        {
-            iFlags |= RocketFlag_RemoveParticles;
-            if (kvConfig.GetNum("replace particles", 0)) iFlags |= RocketFlag_ReplaceParticles;
         }
         
         kvConfig.GetString("behaviour", strBuffer, sizeof(strBuffer), "homing");
@@ -3181,120 +2820,6 @@ stock float GetEntitiesDistance(int iEnt1, int iEnt2)
 	GetEntPropVector(iEnt2, Prop_Send, "m_vecOrigin", fOrig2);
 	
 	return GetVectorDistance(fOrig1, fOrig2);
-}
-
-stock void PrecacheTrail(char[] strFileName)
-{
-	char strDownloadString[PLATFORM_MAX_PATH];
-	FormatEx(strDownloadString, sizeof(strDownloadString), "%s.vmt", strFileName);
-	PrecacheGeneric(strDownloadString, true);
-	AddFileToDownloadsTable(strDownloadString);
-	FormatEx(strDownloadString, sizeof(strDownloadString), "%s.vtf", strFileName);
-	PrecacheGeneric(strDownloadString, true);
-	AddFileToDownloadsTable(strDownloadString);
-}
-
-// https://forums.alliedmods.net/showthread.php?t=75102
-
-stock void CreateTempParticle(const char[] strParticle,
-                              const float vecOrigin[3] = NULL_VECTOR,
-                              const float vecStart[3] = NULL_VECTOR,
-                              const float vecAngles[3] = NULL_VECTOR,
-                              int iEntity = -1,
-                              ParticleAttachmentType AttachmentType = PATTACH_ABSORIGIN,
-                              int iAttachmentPoint = -1,
-                              bool bResetParticles = false)
-{
-	int iParticleTable, iParticleIndex;
-	
-	iParticleTable = FindStringTable("ParticleEffectNames");
-	if (iParticleTable == INVALID_STRING_TABLE)
-	{
-		ThrowError("Could not find string table: ParticleEffectNames");
-	}
-	
-	iParticleIndex = FindStringIndex(iParticleTable, strParticle);
-	if (iParticleIndex == INVALID_STRING_INDEX)
-	{
-		ThrowError("Could not find particle index: %s", strParticle);
-	}
-	
-	TE_Start("TFParticleEffect");
-	TE_WriteFloat("m_vecOrigin[0]", vecOrigin[0]);
-	TE_WriteFloat("m_vecOrigin[1]", vecOrigin[1]);
-	TE_WriteFloat("m_vecOrigin[2]", vecOrigin[2]);
-	TE_WriteFloat("m_vecStart[0]", vecStart[0]);
-	TE_WriteFloat("m_vecStart[1]", vecStart[1]);
-	TE_WriteFloat("m_vecStart[2]", vecStart[2]);
-	TE_WriteVector("m_vecAngles", vecAngles);
-	TE_WriteNum("m_iParticleSystemIndex", iParticleIndex);
-	
-	if (iEntity != -1)
-	{
-		TE_WriteNum("entindex", iEntity);
-	}
-	
-	if (AttachmentType != PATTACH_ABSORIGIN)
-	{
-		TE_WriteNum("m_iAttachType", view_as<int>(AttachmentType));
-	}
-	
-	if (iAttachmentPoint != -1)
-	{
-		TE_WriteNum("m_iAttachmentPointIndex", iAttachmentPoint);
-	}
-	
-	TE_WriteNum("m_bResetParticles", bResetParticles ? 1 : 0);
-	
-	TE_SendToAll();
-}
-
-// https://forums.alliedmods.net/showpost.php?p=2471744&postcount=3
-
-stock int PrecacheParticleSystem(const char[] strParticleSystem)
-{
-	static int iParticleEffectNames = INVALID_STRING_TABLE;
-	
-	if (iParticleEffectNames == INVALID_STRING_TABLE)
-	{
-		if ((iParticleEffectNames = FindStringTable("ParticleEffectNames")) == INVALID_STRING_TABLE)
-		{
-			return INVALID_STRING_INDEX;
-		}
-	}
-	
-	int iIndex = FindStringIndex2(iParticleEffectNames, strParticleSystem);
-	if (iIndex == INVALID_STRING_INDEX)
-	{
-		int iNumStrings = GetStringTableNumStrings(iParticleEffectNames);
-		if (iNumStrings >= GetStringTableMaxStrings(iParticleEffectNames))
-		{
-			return INVALID_STRING_INDEX;
-		}
-		
-		AddToStringTable(iParticleEffectNames, strParticleSystem);
-		iIndex = iNumStrings;
-	}
-	
-	return iIndex;
-}
-
-stock int FindStringIndex2(int iTableIndex, const char[] strString)
-{
-	static char strBuffer[1024];
-	
-	int iNumStrings = GetStringTableNumStrings(iTableIndex);
-	for (int iIndex = 0; iIndex < iNumStrings; iIndex++)
-	{
-		ReadStringTable(iTableIndex, iIndex, strBuffer, sizeof(strBuffer));
-		
-		if (StrEqual(strBuffer, strString))
-		{
-			return iIndex;
-		}
-	}
-	
-	return INVALID_STRING_INDEX;
 }
 
 // https://gitlab.com/nanochip/fixfireloop/-/blob/master/scripting/fixfireloop.sp
@@ -4092,24 +3617,6 @@ public any Native_GetLastStealer(Handle hPlugin, int iNumParams)
 	return g_iLastStealer;
 }
 
-public any Native_GetRocketFakeEntity(Handle hPlugin, int iNumParams)
-{
-	int iIndex = GetNativeCell(1);
-	
-	return g_iRocketFakeEntity[iIndex];
-}
-
-public any Native_SetRocketFakeEntity(Handle hPlugin, int iNumParams)
-{
-	int iIndex = GetNativeCell(1);
-	
-	int iFakeEntity = GetNativeCell(2);
-	
-	g_iRocketFakeEntity[iIndex] = iFakeEntity;
-	
-	return 0;
-}
-
 public any Native_GetRocketSpeed(Handle hPlugin, int iNumParams)
 {
 	int iIndex = GetNativeCell(1);
@@ -4300,132 +3807,6 @@ public any Native_SetRocketClassModel(Handle hPlugin, int iNumParams)
 	char[] strBuffer = new char[iMaxLen + 1]; GetNativeString(2, strBuffer, iMaxLen + 1);
 	
 	strcopy(g_strRocketClassModel[iClass], sizeof(g_strRocketClassModel[]), strBuffer);
-	
-	return 0;
-}
-
-public any Native_GetRocketClassTrail(Handle hPlugin, int iNumParams)
-{
-	int iClass = GetNativeCell(1);
-	
-	int iMaxLen = GetNativeCell(3);
-	
-	SetNativeString(2, g_strRocketClassTrail[iClass], iMaxLen);
-	
-	return 0;
-}
-
-public any Native_SetRocketClassTrail(Handle hPlugin, int iNumParams)
-{
-	int iClass = GetNativeCell(1);
-	
-	int iMaxLen; GetNativeStringLength(2, iMaxLen);
-	
-	char[] strBuffer = new char[iMaxLen + 1]; GetNativeString(2, strBuffer, iMaxLen + 1);
-	
-	strcopy(g_strRocketClassTrail[iClass], sizeof(g_strRocketClassTrail[]), strBuffer);
-	
-	return 0;
-}
-
-public any Native_GetRocketClassSprite(Handle hPlugin, int iNumParams)
-{
-	int iClass = GetNativeCell(1);
-	
-	int iMaxLen = GetNativeCell(3);
-	
-	SetNativeString(2, g_strRocketClassSprite[iClass], iMaxLen);
-	
-	return 0;
-}
-
-public any Native_SetRocketClassSprite(Handle hPlugin, int iNumParams)
-{
-	int iClass = GetNativeCell(1);
-	
-	int iMaxLen; GetNativeStringLength(2, iMaxLen);
-	
-	char[] strBuffer = new char[iMaxLen + 1]; GetNativeString(2, strBuffer, iMaxLen + 1);
-	
-	strcopy(g_strRocketClassSprite[iClass], sizeof(g_strRocketClassSprite[]), strBuffer);
-	
-	return 0;
-}
-
-public any Native_GetRocketClassSpriteColor(Handle hPlugin, int iNumParams)
-{
-	int iClass = GetNativeCell(1);
-	
-	int iMaxLen = GetNativeCell(3);
-	
-	SetNativeString(2, g_strRocketClassSpriteColor[iClass], iMaxLen);
-	
-	return 0;
-}
-
-public any Native_SetRocketClassSpriteColor(Handle hPlugin, int iNumParams)
-{
-	int iClass = GetNativeCell(1);
-	
-	int iMaxLen; GetNativeStringLength(2, iMaxLen);
-	
-	char[] strBuffer = new char[iMaxLen + 1]; GetNativeString(2, strBuffer, iMaxLen + 1);
-	
-	strcopy(g_strRocketClassSpriteColor[iClass], sizeof(g_strRocketClassSpriteColor[]), strBuffer);
-	
-	return 0;
-}
-
-public any Native_GetRocketClassSpriteLifetime(Handle hPlugin, int iNumParams)
-{
-	int iClass = GetNativeCell(1);
-	
-	return g_fRocketClassSpriteLifetime[iClass];
-}
-
-public any Native_SetRocketClassSpriteLifetime(Handle hPlugin, int iNumParams)
-{
-	int iClass = GetNativeCell(1);
-	
-	float fLifetime = GetNativeCell(2);
-	
-	g_fRocketClassSpriteLifetime[iClass] = fLifetime;
-	
-	return 0;
-}
-
-public any Native_GetRocketClassSpriteStartWidth(Handle hPlugin, int iNumParams)
-{
-	int iClass = GetNativeCell(1);
-	
-	return g_fRocketClassSpriteStartWidth[iClass];
-}
-
-public any Native_SetRocketClassSpriteStartWidth(Handle hPlugin, int iNumParams)
-{
-	int iClass = GetNativeCell(1);
-	
-	float fWidth = GetNativeCell(2);
-	
-	g_fRocketClassSpriteStartWidth[iClass] = fWidth;
-	
-	return 0;
-}
-
-public any Native_GetRocketClassSpriteEndWidth(Handle hPlugin, int iNumParams)
-{
-	int iClass = GetNativeCell(1);
-	
-	return g_fRocketClassSpriteEndWidth[iClass];
-}
-
-public any Native_SetRocketClassSpriteEndWidth(Handle hPlugin, int iNumParams)
-{
-	int iClass = GetNativeCell(1);
-	
-	float fWidth = GetNativeCell(2);
-	
-	g_fRocketClassSpriteEndWidth[iClass] = fWidth;
 	
 	return 0;
 }

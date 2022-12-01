@@ -1,25 +1,28 @@
 #pragma semicolon 1
 #pragma newdecls required
 
-#define PLUGIN_AUTHOR "x07x08"
-#define PLUGIN_VERSION "1.2.0"
-
 #include <sourcemod>
 #include <sdkhooks>
 #include <collisionhook>
 
 #include <tfdb>
 
+#define PLUGIN_NAME        "[TFDB] Anti-Sniping & Anti-Teamkilling"
+#define PLUGIN_AUTHOR      "x07x08"
+#define PLUGIN_DESCRIPTION "Blocks snipes and teamkills."
+#define PLUGIN_VERSION     "1.2.0"
+#define PLUGIN_URL         "https://github.com/x07x08/TF2-Dodgeball-Modified"
+
 ConVar g_hCvarHookDamage;
 ConVar g_hCvarHookCollision;
 
-public Plugin myinfo = 
+public Plugin myinfo =
 {
-	name = "[TFDB] Anti-Sniping & Anti-Teamkilling",
-	author = PLUGIN_AUTHOR,
-	description = "Blocks snipes and teamkills.",
-	version = PLUGIN_VERSION,
-	url = "https://github.com/x07x08/TF2-Dodgeball-Modified"
+	name        = PLUGIN_NAME,
+	author      = PLUGIN_AUTHOR,
+	description = PLUGIN_DESCRIPTION,
+	version     = PLUGIN_VERSION,
+	url         = PLUGIN_URL
 };
 
 public void OnPluginStart()

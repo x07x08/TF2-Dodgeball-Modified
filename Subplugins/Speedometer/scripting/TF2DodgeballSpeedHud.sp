@@ -23,7 +23,7 @@ Handle g_hMainHudSync;
 Handle g_hMultiHudSync;
 bool   g_bLoaded;
 
-public Plugin myinfo = 
+public Plugin myinfo =
 {
 	name        = PLUGIN_NAME,
 	author      = PLUGIN_AUTHOR,

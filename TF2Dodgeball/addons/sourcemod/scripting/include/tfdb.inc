@@ -46,13 +46,9 @@ enum RocketFlags
     RocketFlag_TeamlessHits     = 1 << 19,
     RocketFlag_ResetBounces     = 1 << 20,
     RocketFlag_NoBounceDrags    = 1 << 21,
-    RocketFlag_CustomTrail      = 1 << 22,
-    RocketFlag_CustomSprite     = 1 << 23,
-    RocketFlag_RemoveParticles  = 1 << 24,
-    RocketFlag_ReplaceParticles = 1 << 25,
-    RocketFlag_OnNoTargetCmd    = 1 << 26,
-    RocketFlag_CanBeStolen      = 1 << 27,
-    RocketFlag_StealTeamCheck   = 1 << 28
+    RocketFlag_OnNoTargetCmd    = 1 << 22,
+    RocketFlag_CanBeStolen      = 1 << 23,
+    RocketFlag_StealTeamCheck   = 1 << 24
 };
 
 enum RocketSound
@@ -1100,31 +1096,6 @@ native int TFDB_GetLastDeadClient();
 native int TFDB_GetLastStealer();
 
 /**
- * Gets the fake entity reference of a rocket.
- *
- * @note Make sure to check if the rocket has the "RocketFlag_RemoveParticles" flag.
- *
- * @param iIndex    Rocket index.
- * @return          Fake entity reference.
- * @error           Invalid index.
-*/
-
-native int TFDB_GetRocketFakeEntity(int iIndex);
-
-/**
- * Sets the fake entity reference of a rocket.
- *
- * @note Make sure to check if the rocket has the "RocketFlag_RemoveParticles" flag.
- *
- * @param iIndex         Rocket index.
- * @param iFakeEntity    New fake entity reference.
- * @noreturn
- * @error                Invalid index.
-*/
-
-native void TFDB_SetRocketFakeEntity(int iIndex, int iFakeEntity);
-
-/**
  * Gets the speed of a rocket.
  *
  * @param iIndex    Rocket index.
@@ -1337,138 +1308,6 @@ native void TFDB_GetRocketClassModel(int iClass, char[] strBuffer, int iMaxLen);
 */
 
 native void TFDB_SetRocketClassModel(int iClass, const char[] strPath);
-
-/**
- * Gets the trail particle of a rocket class.
- *
- * @param iClass       Rocket class.
- * @param strBuffer    Buffer to store the trail particle of the rocket class.
- * @param iMaxLen      Size of the buffer array.
- * @noreturn
- * @error              Invalid rocket class.
-*/
-
-native void TFDB_GetRocketClassTrail(int iClass, char[] strBuffer, int iMaxLen);
-
-/**
- * Sets the trail particle of a rocket class.
- *
- * @param iClass     Rocket class.
- * @param strPath    New rocket class trail particle.
- * @noreturn
- * @error            Invalid rocket class.
-*/
-
-native void TFDB_SetRocketClassTrail(int iClass, const char[] strPath);
-
-/**
- * Gets the sprite trail material path of a rocket class (no extension).
- *
- * @param iClass       Rocket class.
- * @param strBuffer    Buffer to store the sprite trail material path of the rocket class.
- * @param iMaxLen      Size of the buffer array.
- * @noreturn
- * @error              Invalid rocket class.
-*/
-
-native void TFDB_GetRocketClassSprite(int iClass, char[] strBuffer, int iMaxLen);
-
-/**
- * Sets the sprite trail material path of a rocket class (no extension).
- *
- * @param iClass     Rocket class.
- * @param strPath    New rocket class sprite trail material path.
- * @noreturn
- * @error            Invalid rocket class.
-*/
-
-native void TFDB_SetRocketClassSprite(int iClass, const char[] strPath);
-
-/**
- * Gets the sprite trail color of a rocket class.
- *
- * @param iClass       Rocket class.
- * @param strBuffer    Buffer to store the sprite trail color of the rocket class.
- * @param iMaxLen      Size of the buffer array.
- * @noreturn
- * @error              Invalid rocket class.
-*/
-
-native void TFDB_GetRocketClassSpriteColor(int iClass, char[] strBuffer, int iMaxLen);
-
-/**
- * Sets the sprite trail color of a rocket class.
- *
- * @param iClass       Rocket class.
- * @param strBuffer    New rocket class sprite trail color.
- * @noreturn
- * @error              Invalid rocket class.
-*/
-
-native void TFDB_SetRocketClassSpriteColor(int iClass, const char[] strBuffer);
-
-/**
- * Gets the sprite trail lifetime of a rocket class.
- *
- * @param iClass    Rocket class.
- * @return          Rocket class sprite trail lifetime.
- * @error           Invalid rocket class.
-*/
-
-native float TFDB_GetRocketClassSpriteLifetime(int iClass);
-
-/**
- * Sets the sprite trail lifetime of a rocket class.
- *
- * @param iClass       Rocket class.
- * @param fLifetime    New rocket class sprite trail lifetime.
- * @noreturn
- * @error              Invalid rocket class.
-*/
-
-native void TFDB_SetRocketClassSpriteLifetime(int iClass, float fLifetime);
-
-/**
- * Gets the sprite trail start width of a rocket class.
- *
- * @param iClass    Rocket class.
- * @return          Rocket class sprite trail start width.
- * @error           Invalid rocket class.
-*/
-
-native float TFDB_GetRocketClassSpriteStartWidth(int iClass);
-
-/**
- * Sets the sprite trail start width of a rocket class.
- *
- * @param iClass    Rocket class.
- * @param fWidth    New rocket class sprite trail start width.
- * @noreturn
- * @error           Invalid rocket class.
-*/
-
-native void TFDB_SetRocketClassSpriteStartWidth(int iClass, float fWidth);
-
-/**
- * Gets the sprite trail end width of a rocket class.
- *
- * @param iClass    Rocket class.
- * @return          Rocket class sprite trail end width.
- * @error           Invalid rocket class.
-*/
-
-native float TFDB_GetRocketClassSpriteEndWidth(int iClass);
-
-/**
- * Sets the sprite trail end width of a rocket class.
- *
- * @param iClass    Rocket class.
- * @param fWidth    New rocket class sprite trail end width.
- * @noreturn
- * @error           Invalid rocket class.
-*/
-
-native void TFDB_SetRocketClassSpriteEndWidth(int iClass, float fWidth);
 
 /**
  * Gets the beep interval of a rocket class.
@@ -1884,7 +1723,7 @@ public SharedPlugin __pl_TFDB =
 };
 
 #if !defined REQUIRE_PLUGIN
-public __pl_TFDB_SetNTVOptional()
+public void __pl_TFDB_SetNTVOptional()
 {
 	MarkNativeAsOptional("TFDB_IsValidRocket");
 	MarkNativeAsOptional("TFDB_FindRocketByEntity");
@@ -1973,8 +1812,6 @@ public __pl_TFDB_SetNTVOptional()
 	MarkNativeAsOptional("TFDB_GetLastDeadTeam");
 	MarkNativeAsOptional("TFDB_GetLastDeadClient");
 	MarkNativeAsOptional("TFDB_GetLastStealer");
-	MarkNativeAsOptional("TFDB_GetRocketFakeEntity");
-	MarkNativeAsOptional("TFDB_SetRocketFakeEntity");
 	MarkNativeAsOptional("TFDB_GetRocketSpeed");
 	MarkNativeAsOptional("TFDB_SetRocketSpeed");
 	MarkNativeAsOptional("TFDB_GetRocketMphSpeed");
@@ -1995,18 +1832,6 @@ public __pl_TFDB_SetNTVOptional()
 	MarkNativeAsOptional("TFDB_SetRocketClassLongName");
 	MarkNativeAsOptional("TFDB_GetRocketClassModel");
 	MarkNativeAsOptional("TFDB_SetRocketClassModel");
-	MarkNativeAsOptional("TFDB_GetRocketClassTrail");
-	MarkNativeAsOptional("TFDB_SetRocketClassTrail");
-	MarkNativeAsOptional("TFDB_GetRocketClassSprite");
-	MarkNativeAsOptional("TFDB_SetRocketClassSprite");
-	MarkNativeAsOptional("TFDB_GetRocketClassSpriteColor");
-	MarkNativeAsOptional("TFDB_SetRocketClassSpriteColor");
-	MarkNativeAsOptional("TFDB_GetRocketClassSpriteLifetime");
-	MarkNativeAsOptional("TFDB_SetRocketClassSpriteLifetime");
-	MarkNativeAsOptional("TFDB_GetRocketClassSpriteStartWidth");
-	MarkNativeAsOptional("TFDB_SetRocketClassSpriteStartWidth");
-	MarkNativeAsOptional("TFDB_GetRocketClassSpriteEndWidth");
-	MarkNativeAsOptional("TFDB_SetRocketClassSpriteEndWidth");
 	MarkNativeAsOptional("TFDB_GetRocketClassBeepInterval");
 	MarkNativeAsOptional("TFDB_SetRocketClassBeepInterval");
 	MarkNativeAsOptional("TFDB_GetRocketClassSpawnSound");

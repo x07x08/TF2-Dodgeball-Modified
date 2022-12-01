@@ -564,4 +564,59 @@
 		"#format"	"{1:i}"
 		"en"		"[{olive}TFDB{default}] Changed spawners rocket class chances to {darkorange}{1}{default}."
 	}
+	
+	"Dodgeball_BounceVote_Cooldown"
+	{
+		"#format"	"{1:i}"
+		"en"		"[{olive}TFDB{default}] Voting for bounce toggling is in cooldown for {darkorange}{1}{default} seconds."
+	}
+	
+	"Dodgeball_BounceVote_Failed"
+	{
+		"en"		"[{olive}TFDB{default}] Bounce toggle vote {red}failed{default}."
+	}
+	
+	"Dodgeball_BounceVote_Enabled"
+	{
+		"en"		"[{olive}TFDB{default}] No bounce mode is now {community}enabled{default}."
+	}
+	
+	"Dodgeball_BounceVote_Disabled"
+	{
+		"en"		"[{olive}TFDB{default}] No bounce mode is now {red}disabled{default}."
+	}
+	
+	"Dodgeball_ClassVote_Cooldown"
+	{
+		"#format"	"{1:i}"
+		"en"		"[{olive}TFDB{default}] Voting for a main rocket class is in cooldown for {darkorange}{1}{default} seconds."
+	}
+	
+	"Dodgeball_ClassVote_Reset"
+	{
+		"en"		"[{olive}TFDB{default}] The main rocket class has been {red}reset{default}."
+	}
+	
+	"Dodgeball_ClassVote_Changed"
+	{
+		"#format"	"{1:s}"
+		"en"		"[{olive}TFDB{default}] The main rocket class has been changed to \"{community}{1}{default}\"."
+	}
+	
+	"Dodgeball_CountVote_Cooldown"
+	{
+		"#format"	"{1:i}"
+		"en"		"[{olive}TFDB{default}] Voting for rockets count is in cooldown for {darkorange}{1}{default} seconds."
+	}
+	
+	"Dodgeball_CountVote_Reset"
+	{
+		"en"		"[{olive}TFDB{default}] The rockets count has been {red}reset{default}."
+	}
+	
+	"Dodgeball_CountVote_Changed"
+	{
+		"#format"	"{1:i}"
+		"en"		"[{olive}TFDB{default}] The rockets count has been changed to {community}{1}{default}."
+	}
 }
