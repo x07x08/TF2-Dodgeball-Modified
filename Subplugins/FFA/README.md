@@ -1,4 +1,4 @@
-# Convars
+<h1> Convars </h1>
 
 <table>
 	<tr>
@@ -50,5 +50,22 @@
 		<td><code> tf_dodgeball_ffa_teams </code></td>
 		<td><code> 1 </code></td>
 		<td> Automatically swap players when a team is empty in FFA mode? </td>
+	</tr>
+</table>
+
+<h1> Commands </h1>
+
+<table>
+	<tr>
+		<th> Name </th>
+		<th> Description </th>
+	</tr>
+	<tr>
+		<td><code> sm_ffa </code></td>
+		<td> Forcefully toggle FFA </td>
+	</tr>
+	<tr>
+		<td><code> sm_voteffa </code></td>
+		<td> Start a vote to toggle FFA </td>
 	</tr>
 </table>
