@@ -1,3 +1,5 @@
+# Description
+
 This subplugin can be used to print messages and replace the client indexes given by the main dodgeball plugin.
 
 To replace an index, surround it in a pair of `"##"` (without quotes). 
