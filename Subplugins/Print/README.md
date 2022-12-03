@@ -18,7 +18,7 @@ Example : `{steelblue}##@dead##{default}`
 
 # Full example
 
-Phrase inside [`tfdb.phrases.txt`](https://github.com/x07x08/TF2-Dodgeball-Modified/blob/main/TF2Dodgeball/addons/sourcemod/translations/tfdb.phrases.txt#L76-L80) :
+Phrase inside [`tfdb.phrases.txt`](https://github.com/x07x08/TF2-Dodgeball-Modified/blob/main/TF2Dodgeball/addons/sourcemod/translations/tfdb.phrases.txt) :
 
 ```
 	"Dodgeball_Death_Message"
