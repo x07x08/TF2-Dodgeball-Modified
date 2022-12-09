@@ -2601,7 +2601,7 @@ void CheckStolenRocket(int iClient, int iIndex)
 			bStealArray[iClient].rocketsStolen++;
 			SlapPlayer(iClient, 0, true);
 			CPrintToChat(iClient, "%t", "DBSteal_Warning_Client", bStealArray[iClient].rocketsStolen, g_hCvarStealPreventionNumber.IntValue);
-			MC_SkipNextClient(iClient);
+			CSkipNextClient(iClient);
 			CPrintToChatAll("%t", "DBSteal_Announce_All", iClient, iTarget);
 			bStealArray[iClient].stoleRocket = false;
 		}
@@ -2609,7 +2609,7 @@ void CheckStolenRocket(int iClient, int iIndex)
 		{
 			ForcePlayerSuicide(iClient);
 			CPrintToChat(iClient, "%t", "DBSteal_Slay_Client");
-			MC_SkipNextClient(iClient);
+			CSkipNextClient(iClient);
 			CPrintToChatAll("%t", "DBSteal_Announce_Slay_All", iClient);
 		}
 		Internal_SetRocketState(iIndex, (g_iRocketState[iIndex] | RocketState_Stolen));
