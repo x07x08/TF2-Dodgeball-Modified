@@ -9,6 +9,7 @@
     tf_dodgeball_dp_time          "5"     - How much time [in seconds] before delay prevention activates?
     tf_dodgeball_dp_speedup       "100"   - How much speed [in hammer units per second] should the rocket gain when delayed?
     tf_dodgeball_redirect_damage  "1"     - Reduce all damage when a rocket has an invalid target?
+    tf_dodgeball_no_teams_collision  "0"     - Disable collision between teammates?
 ```
 
 # Commands
