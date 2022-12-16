@@ -22,6 +22,9 @@
 #define PLUGIN_AUTHOR           "Damizean, edited by x07x08"
 #define PLUGIN_VERSION          "1.9.0"
 #define PLUGIN_CONTACT          "https://github.com/x07x08/TF2-Dodgeball-Modified"
+// ---- Collision groups -----------------------------------------------------------
+#define COLLISION_GROUP_PUSHAWAY            17
+#define COLLISION_GROUP_PLAYER              5
 
 // ---- Flags and types constants --------------------------------------------------
 enum Musics
@@ -48,6 +51,7 @@ ConVar g_hCvarDelayPrevention;
 ConVar g_hCvarDelayPreventionTime;
 ConVar g_hCvarDelayPreventionSpeedup;
 ConVar g_hCvarNoTargetRedirectDamage;
+ConVar g_hCvarNoTeamsCollision;
 
 // -----<<< Gameplay >>>-----
 bool   g_bEnabled;                // Is the plugin enabled?
@@ -203,6 +207,7 @@ public void OnPluginStart()
     g_hCvarDelayPreventionTime = CreateConVar("tf_dodgeball_dp_time", "5", "How much time (in seconds) before delay prevention activates?", _, true, 0.0, false);
     g_hCvarDelayPreventionSpeedup = CreateConVar("tf_dodgeball_dp_speedup", "100", "How much speed (in hammer units per second) should the rocket gain when delayed?", _, true, 0.0, false);
     g_hCvarNoTargetRedirectDamage = CreateConVar("tf_dodgeball_redirect_damage", "1", "Reduce all damage when a rocket has an invalid target?", _, true, 0.0, true, 1.0);
+    g_hCvarNoTeamsCollision = CreateConVar("tf_dodgeball_no_teams_collision", "0", "Disable collision between teammates?", _, true, 0.0, true, 1.0);
     
     g_hSpawnersTrie = new StringMap();
     g_fTickModifier = 0.1 / GetTickInterval();
@@ -753,7 +758,16 @@ public void OnPlayerSpawn(Event hEvent, char[] strEventName, bool bDontBroadcast
 {
     int iClient = GetClientOfUserId(hEvent.GetInt("userid"));
     if (!IsValidClient(iClient)) return;
-    
+
+    if (g_hCvarNoTeamsCollision.BoolValue)
+    {
+        SetEntProp(iClient, Prop_Data, "m_CollisionGroup", COLLISION_GROUP_PUSHAWAY);
+    }
+    else
+    {
+        SetEntProp(iClient, Prop_Data, "m_CollisionGroup", COLLISION_GROUP_PLAYER);
+    }
+
     TFClassType iClass = TF2_GetPlayerClass(iClient);
     if (!(iClass == TFClass_Pyro || iClass == TFClass_Unknown))
     {
