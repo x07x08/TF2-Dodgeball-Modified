@@ -10,15 +10,17 @@
 #define PLUGIN_NAME        "[TFDB] Free-for-All"
 #define PLUGIN_AUTHOR      "x07x08"
 #define PLUGIN_DESCRIPTION "Makes all rockets neutral"
-#define PLUGIN_VERSION     "1.1.0"
+#define PLUGIN_VERSION     "1.1.1"
 #define PLUGIN_URL         "https://github.com/x07x08/TF2-Dodgeball-Modified"
 
-bool   g_bLoaded;
-bool   g_bFFAEnabled;
-int    g_iBotCount;
-bool   g_bVoteAllowed;
-float  g_fLastVoteTime;
-int    g_iOldTeam[MAXPLAYERS + 1];
+bool  g_bLoaded;
+bool  g_bFFAEnabled;
+int   g_iBotCount;
+bool  g_bVoteAllowed;
+float g_fLastVoteTime;
+int   g_iOldTeam[MAXPLAYERS + 1];
+
+Address g_pMyWearables;
 
 ConVar g_hCvarDisableOnBot;
 ConVar g_hCvarVoteTimeout;
@@ -43,6 +45,8 @@ public void OnPluginStart()
 {
 	LoadTranslations("tfdb.phrases.txt");
 	
+	g_pMyWearables = view_as<Address>(FindSendPropInfo("CTFPlayer", "m_hMyWearables"));
+	
 	g_hCvarDisableOnBot  = CreateConVar("tf_dodgeball_ffa_bot", "1", "Disable FFA when a bot joins?", _, true, 0.0, true, 1.0);
 	g_hCvarVoteTimeout   = CreateConVar("tf_dodgeball_ffa_timeout", "150", "Vote timeout (in seconds)", _, true, 0.0);
 	g_hCvarVoteDuration  = CreateConVar("tf_dodgeball_ffa_duration", "20", "Vote duration (in seconds)", _, true, 0.0);
@@ -56,10 +60,9 @@ public void OnPluginStart()
 	RegAdminCmd("sm_ffa", CmdToggleFFA, ADMFLAG_CONFIG, "Forcefully toggle FFA");
 	RegConsoleCmd("sm_voteffa", CmdVoteFFA, "Start a vote to toggle FFA");
 	
-	if (TFDB_IsDodgeballEnabled())
-	{
-		TFDB_OnRocketsConfigExecuted();
-	}
+	if (!TFDB_IsDodgeballEnabled()) return;
+	
+	TFDB_OnRocketsConfigExecuted();
 }
 
 public void TFDB_OnRocketsConfigExecuted()
@@ -117,6 +120,25 @@ public void OnMapEnd()
 public void OnClientDisconnect(int iClient)
 {
 	g_iOldTeam[iClient] = 0;
+	
+	if (!g_bFFAEnabled ||
+	    !g_hCvarSwitchTeams.BoolValue ||
+	    (g_hCvarDisableOnBot.BoolValue && g_iBotCount) ||
+	    !TFDB_GetRoundStarted())
+	{
+		return;
+	}
+	
+	int iTeam = GetClientTeam(iClient);
+	
+	if (iTeam <= 1) return;
+	
+	int iOtherTeam = GetAnalogueTeam(iTeam);
+	
+	if (((GetTeamAliveClientCount(iTeam) - 1) == 0) && ((GetTeamAliveClientCount(iOtherTeam) - 1) >= 1))
+	{
+		ChangeAliveClientTeam(GetRandomTeamAliveClient(iOtherTeam), iTeam);
+	}
 }
 
 public void OnClientConnected(int iClient)
@@ -213,7 +235,8 @@ public void OnRoundStart(Event hEvent, char[] strEventName, bool bDontBroadcast)
 		if (g_hCvarSwitchTeams.BoolValue &&
 		    (!g_hCvarDisableOnBot.BoolValue || !g_iBotCount) &&
 		    (g_iOldTeam[iClient] >= 2) &&
-		    (g_iOldTeam[iClient] != iTeam))
+		    (g_iOldTeam[iClient] != iTeam) &&
+		    ((GetTeamAliveClientCount(iTeam) - 1) >= 1))
 		{
 			ChangeClientTeam(iClient, g_iOldTeam[iClient]);
 		}
@@ -539,6 +562,40 @@ void ChangeAliveClientTeam(int iClient, int iTeam)
 {
 	int iLifeState = GetEntProp(iClient, Prop_Send, "m_lifeState");
 	SetEntProp(iClient, Prop_Send, "m_lifeState", 2);
+	
 	ChangeClientTeam(iClient, iTeam);
 	SetEntProp(iClient, Prop_Send, "m_lifeState", iLifeState);
+	
+	int iWearable;
+	int iWearablesCount = GetPlayerWearablesCount(iClient);
+	Address pData = DereferencePointer(GetEntityAddress(iClient) + g_pMyWearables);
+	
+	for (int iIndex = 0; iIndex < iWearablesCount; iIndex++)
+	{
+		iWearable = LoadEntityHandleFromAddress(pData + view_as<Address>(0x04 * iIndex));
+		
+		SetEntProp(iWearable, Prop_Send, "m_nSkin", (iTeam == view_as<int>(TFTeam_Blue)) ? 1 : 0);
+		SetEntProp(iWearable, Prop_Send, "m_iTeamNum", iTeam);
+	}
+}
+
+/*
+	https://github.com/nosoop/SM-TFUtils/blob/master/scripting/tf2utils.sp
+	https://github.com/nosoop/stocksoup/blob/master/memory.inc
+*/
+
+stock int LoadEntityHandleFromAddress(Address pAddress)
+{
+	return EntRefToEntIndex(LoadFromAddress(pAddress, NumberType_Int32) | (1 << 31));
+}
+
+stock Address DereferencePointer(Address pAddress)
+{
+	// maybe someday we'll do 64-bit addresses
+	return view_as<Address>(LoadFromAddress(pAddress, NumberType_Int32));
+}
+
+int GetPlayerWearablesCount(int iClient)
+{
+	return GetEntData(iClient, view_as<int>(g_pMyWearables) + 0x0C);
 }

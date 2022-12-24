@@ -11,7 +11,7 @@
 #define PLUGIN_NAME        "[TFDB] Rocket Speedometer"
 #define PLUGIN_AUTHOR      "x07x08"
 #define PLUGIN_DESCRIPTION "Shows the speed of the last deflected rocket"
-#define PLUGIN_VERSION     "1.1.1"
+#define PLUGIN_VERSION     "1.1.2"
 #define PLUGIN_URL         "https://github.com/x07x08/TF2-Dodgeball-Modified"
 
 int    g_iLastRocket = -1;
@@ -41,6 +41,8 @@ public void OnPluginStart()
 	
 	g_hCookieShowHud = new Cookie("tfdb_rockethud", "Show rocket speedometer", CookieAccess_Protected);
 	
+	if (!TFDB_IsDodgeballEnabled()) return;
+	
 	for (int iClient = 1; iClient <= MaxClients; iClient++)
 	{
 		if (!AreClientCookiesCached(iClient)) continue;
@@ -48,17 +50,14 @@ public void OnPluginStart()
 		OnClientCookiesCached(iClient);
 	}
 	
-	if (TFDB_IsDodgeballEnabled())
+	TFDB_OnRocketsConfigExecuted();
+	
+	if (TFDB_GetRoundStarted())
 	{
-		TFDB_OnRocketsConfigExecuted();
+		g_iLastRocket = FindLastRocket();
+		g_strMultiHudText = "\0";
 		
-		if (TFDB_GetRoundStarted())
-		{
-			g_iLastRocket = FindLastRocket();
-			g_strMultiHudText = "\0";
-			
-			g_hHudTimer = CreateTimer(0.1, HudTimerCallback, _, TIMER_REPEAT);
-		}
+		g_hHudTimer = CreateTimer(0.1, HudTimerCallback, _, TIMER_REPEAT);
 	}
 }
 
@@ -109,7 +108,6 @@ public void OnClientCookiesCached(int iClient)
 	char strValue[4]; g_hCookieShowHud.Get(iClient, strValue, sizeof(strValue));
 	
 	// Taken from FF2
-	
 	if (!strValue[0])
 	{
 		g_hCookieShowHud.Set(iClient, "1");
@@ -141,13 +139,12 @@ public void OnRoundEnd(Event hEvent, char[] strEventName, bool bDontBroadcast)
 
 public void OnSetupFinished(Event hEvent, char[] strEventName, bool bDontBroadcast)
 {
-	if (BothTeamsPlaying())
-	{
-		g_iLastRocket = -1;
-		g_strMultiHudText = "\0";
-		
-		g_hHudTimer = CreateTimer(0.1, HudTimerCallback, _, TIMER_REPEAT);
-	}
+	if (!BothTeamsPlaying()) return;
+	
+	g_iLastRocket = -1;
+	g_strMultiHudText = "\0";
+	
+	g_hHudTimer = CreateTimer(0.1, HudTimerCallback, _, TIMER_REPEAT);
 }
 
 public Action CmdToggleSpeedometer(int iClient, int iArgs)
@@ -278,7 +275,9 @@ stock bool BothTeamsPlaying()
 	for (int iClient = 1; iClient <= MaxClients; iClient++)
 	{
 		if (!IsClientInGame(iClient) || !IsPlayerAlive(iClient)) continue;
+		
 		int iTeam = GetClientTeam(iClient);
+		
 		if (iTeam == view_as<int>(TFTeam_Red)) bRedFound = true;
 		if (iTeam == view_as<int>(TFTeam_Blue)) bBluFound = true;
 	}

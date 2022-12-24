@@ -16,46 +16,46 @@
 // ---- Flags and types constants --------------------------------------------------
 enum BehaviourTypes
 {
-    Behaviour_Unknown,
-    Behaviour_Homing,
-    Behaviour_LegacyHoming
+	Behaviour_Unknown,
+	Behaviour_Homing,
+	Behaviour_LegacyHoming
 };
 
 enum RocketFlags
 {
-    RocketFlag_None             = 0,
-    RocketFlag_PlaySpawnSound   = 1 << 0,
-    RocketFlag_PlayBeepSound    = 1 << 1,
-    RocketFlag_PlayAlertSound   = 1 << 2,
-    RocketFlag_ElevateOnDeflect = 1 << 3,
-    RocketFlag_IsNeutral        = 1 << 4,
-    RocketFlag_Exploded         = 1 << 5,
-    RocketFlag_OnSpawnCmd       = 1 << 6,
-    RocketFlag_OnDeflectCmd     = 1 << 7,
-    RocketFlag_OnKillCmd        = 1 << 8,
-    RocketFlag_OnExplodeCmd     = 1 << 9,
-    RocketFlag_CustomModel      = 1 << 10,
-    RocketFlag_CustomSpawnSound = 1 << 11,
-    RocketFlag_CustomBeepSound  = 1 << 12,
-    RocketFlag_CustomAlertSound = 1 << 13,
-    RocketFlag_Elevating        = 1 << 14,
-    RocketFlag_IsAnimated       = 1 << 15,
-    RocketFlag_IsTRLimited      = 1 << 16,
-    RocketFlag_IsSpeedLimited   = 1 << 17,
-    RocketFlag_KeepDirection    = 1 << 18,
-    RocketFlag_TeamlessHits     = 1 << 19,
-    RocketFlag_ResetBounces     = 1 << 20,
-    RocketFlag_NoBounceDrags    = 1 << 21,
-    RocketFlag_OnNoTargetCmd    = 1 << 22,
-    RocketFlag_CanBeStolen      = 1 << 23,
-    RocketFlag_StealTeamCheck   = 1 << 24
+	RocketFlag_None             = 0,
+	RocketFlag_PlaySpawnSound   = 1 << 0,
+	RocketFlag_PlayBeepSound    = 1 << 1,
+	RocketFlag_PlayAlertSound   = 1 << 2,
+	RocketFlag_ElevateOnDeflect = 1 << 3,
+	RocketFlag_IsNeutral        = 1 << 4,
+	RocketFlag_Exploded         = 1 << 5,
+	RocketFlag_OnSpawnCmd       = 1 << 6,
+	RocketFlag_OnDeflectCmd     = 1 << 7,
+	RocketFlag_OnKillCmd        = 1 << 8,
+	RocketFlag_OnExplodeCmd     = 1 << 9,
+	RocketFlag_CustomModel      = 1 << 10,
+	RocketFlag_CustomSpawnSound = 1 << 11,
+	RocketFlag_CustomBeepSound  = 1 << 12,
+	RocketFlag_CustomAlertSound = 1 << 13,
+	RocketFlag_Elevating        = 1 << 14,
+	RocketFlag_IsAnimated       = 1 << 15,
+	RocketFlag_IsTRLimited      = 1 << 16,
+	RocketFlag_IsSpeedLimited   = 1 << 17,
+	RocketFlag_KeepDirection    = 1 << 18,
+	RocketFlag_TeamlessHits     = 1 << 19,
+	RocketFlag_ResetBounces     = 1 << 20,
+	RocketFlag_NoBounceDrags    = 1 << 21,
+	RocketFlag_OnNoTargetCmd    = 1 << 22,
+	RocketFlag_CanBeStolen      = 1 << 23,
+	RocketFlag_StealTeamCheck   = 1 << 24
 };
 
 enum RocketSound
 {
-    RocketSound_Spawn,
-    RocketSound_Beep,
-    RocketSound_Alert
+	RocketSound_Spawn,
+	RocketSound_Beep,
+	RocketSound_Alert
 };
 
 enum RocketState

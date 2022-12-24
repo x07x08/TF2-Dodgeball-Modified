@@ -9,7 +9,7 @@
 #define PLUGIN_NAME        "[TFDB] Votes"
 #define PLUGIN_AUTHOR      "x07x08"
 #define PLUGIN_DESCRIPTION "Various rocket votes."
-#define PLUGIN_VERSION     "1.0.0"
+#define PLUGIN_VERSION     "1.0.1"
 #define PLUGIN_URL         "https://github.com/x07x08/TF2-Dodgeball-Modified"
 
 int g_iSpawnersCount;
@@ -67,34 +67,32 @@ public void OnPluginStart()
 	RegConsoleCmd("sm_voterocketclass", CmdVoteClass, "Start a rocket class vote");
 	RegConsoleCmd("sm_voterocketcount", CmdVoteCount, "Start a rocket count vote");
 	
-	if (TFDB_IsDodgeballEnabled())
-	{
-		char strMapName[64]; GetCurrentMap(strMapName, sizeof(strMapName));
-		char strMapFile[PLATFORM_MAX_PATH]; FormatEx(strMapFile, sizeof(strMapFile), "%s.cfg", strMapName);
-		
-		TFDB_OnRocketsConfigExecuted("general.cfg");
-		TFDB_OnRocketsConfigExecuted(strMapFile);
-	}
+	if (!TFDB_IsDodgeballEnabled()) return;
+	
+	char strMapName[64]; GetCurrentMap(strMapName, sizeof(strMapName));
+	char strMapFile[PLATFORM_MAX_PATH]; FormatEx(strMapFile, sizeof(strMapFile), "%s.cfg", strMapName);
+	
+	TFDB_OnRocketsConfigExecuted("general.cfg");
+	TFDB_OnRocketsConfigExecuted(strMapFile);
 }
 
 public void OnMapEnd()
 {
-	if (g_bLoaded)
-	{
-		g_bVoteBounceAllowed =
-		g_bVoteClassAllowed  =
-		g_bVoteCountAllowed  = false;
-		
-		g_fLastVoteBounceTime =
-		g_fLastVoteClassTime  =
-		g_fLastVoteCountTime  = 0.0;
-		
-		g_bBounceEnabled = false;
-		g_iMainRocketClass = -1;
-		g_iRocketsCount = -1;
-		
-		g_bLoaded = false;
-	}
+	if (!g_bLoaded) return;
+	
+	g_bVoteBounceAllowed =
+	g_bVoteClassAllowed  =
+	g_bVoteCountAllowed  = false;
+	
+	g_fLastVoteBounceTime =
+	g_fLastVoteClassTime  =
+	g_fLastVoteCountTime  = 0.0;
+	
+	g_bBounceEnabled = false;
+	g_iMainRocketClass = -1;
+	g_iRocketsCount = -1;
+	
+	g_bLoaded = false;
 	
 	g_iSpawnersCount = 0;
 }
@@ -519,20 +517,19 @@ public Action VoteCountTimeoutCallback(Handle hTimer)
 
 public Action TFDB_OnRocketCreatedPre(int iIndex, int &iClass, RocketFlags &iFlags)
 {
-	if (g_iMainRocketClass != -1)
-	{
-		iClass = g_iMainRocketClass;
-		iFlags = TFDB_GetRocketClassFlags(g_iMainRocketClass);
-		
-		return Plugin_Changed;
-	}
+	if (g_iMainRocketClass == -1) return Plugin_Continue;
 	
-	return Plugin_Continue;
+	iClass = g_iMainRocketClass;
+	iFlags = TFDB_GetRocketClassFlags(g_iMainRocketClass);
+	
+	return Plugin_Changed;
 }
 
 public void TFDB_OnRocketCreated(int iIndex)
 {
-	if (g_bBounceEnabled) TFDB_SetRocketBounces(iIndex, TFDB_GetRocketClassMaxBounces(TFDB_GetRocketClass(iIndex)));
+	if (!g_bBounceEnabled) return;
+	
+	TFDB_SetRocketBounces(iIndex, TFDB_GetRocketClassMaxBounces(TFDB_GetRocketClass(iIndex)));
 }
 
 void ParseConfigurations(const char[] strConfigFile)
@@ -542,22 +539,23 @@ void ParseConfigurations(const char[] strConfigFile)
 	FormatEx(strFileName, sizeof(strFileName), "configs/dodgeball/%s", strConfigFile);
 	BuildPath(Path_SM, strPath, sizeof(strPath), strFileName);
 	
-	if (FileExists(strPath, true))
+	if (!FileExists(strPath, true)) return;
+	
+	KeyValues kvConfig = new KeyValues("TF2_Dodgeball");
+	
+	if (kvConfig.ImportFromFile(strPath) == false) SetFailState("Error while parsing the configuration file.");
+	
+	kvConfig.GotoFirstSubKey();
+	
+	do
 	{
-		KeyValues kvConfig = new KeyValues("TF2_Dodgeball");
-		if (kvConfig.ImportFromFile(strPath) == false) SetFailState("Error while parsing the configuration file.");
-		kvConfig.GotoFirstSubKey();
+		char strSection[64]; kvConfig.GetSectionName(strSection, sizeof(strSection));
 		
-		do
-		{
-			char strSection[64]; kvConfig.GetSectionName(strSection, sizeof(strSection));
-			
-			if (StrEqual(strSection, "spawners")) ParseSpawners(kvConfig);
-		}
-		while (kvConfig.GotoNextKey());
-		
-		delete kvConfig;
+		if (StrEqual(strSection, "spawners")) ParseSpawners(kvConfig);
 	}
+	while (kvConfig.GotoNextKey());
+	
+	delete kvConfig;
 }
 
 void ParseSpawners(KeyValues kvConfig)
@@ -573,6 +571,7 @@ void ParseSpawners(KeyValues kvConfig)
 		g_iSpawnersCount++;
 	}
 	while (kvConfig.GotoNextKey());
+	
 	kvConfig.GoBack();
 }
 

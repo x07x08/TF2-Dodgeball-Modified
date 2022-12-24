@@ -12,7 +12,7 @@
 #define PLUGIN_NAME        "[TFDB] Rocket trails"
 #define PLUGIN_AUTHOR      "x07x08"
 #define PLUGIN_DESCRIPTION "Customizable rocket trails"
-#define PLUGIN_VERSION     "1.0.0"
+#define PLUGIN_VERSION     "1.0.1"
 #define PLUGIN_URL         "https://github.com/x07x08/TF2-Dodgeball-Modified"
 
 enum ParticleAttachmentType
@@ -71,10 +71,9 @@ public void OnPluginStart()
 	
 	RegConsoleCmd("sm_rocketspritetrails", CmdHideSprites);
 	
-	if (TFDB_IsDodgeballEnabled())
-	{
-		TFDB_OnRocketsConfigExecuted("general.cfg");
-	}
+	if (!TFDB_IsDodgeballEnabled()) return;
+	
+	TFDB_OnRocketsConfigExecuted("general.cfg");
 }
 
 public APLRes AskPluginLoad2(Handle hMyself, bool bLate, char[] strError, int iErrMax)
@@ -148,20 +147,19 @@ public void TFDB_OnRocketsConfigExecuted(const char[] strConfigFile)
 
 public void OnMapEnd()
 {
-	if (g_bLoaded)
+	if (!g_bLoaded) return;
+	
+	UnhookEvent("object_deflected", OnObjectDeflected);
+	UnhookEvent("player_team", OnPlayerTeam);
+	
+	for (int iIndex = 0; iIndex < g_iRocketClassCount; iIndex++)
 	{
-		UnhookEvent("object_deflected", OnObjectDeflected);
-		UnhookEvent("player_team", OnPlayerTeam);
-		
-		for (int iIndex = 0; iIndex < g_iRocketClassCount; iIndex++)
-		{
-			delete g_hRocketClassSpriteTrie[iIndex];
-		}
-		
-		g_iRocketClassCount = 0;
-		
-		g_bLoaded = false;
+		delete g_hRocketClassSpriteTrie[iIndex];
 	}
+	
+	g_iRocketClassCount = 0;
+	
+	g_bLoaded = false;
 }
 
 public void OnClientDisconnect(int iClient)
@@ -176,40 +174,40 @@ public void OnObjectDeflected(Event hEvent, char[] strEventName, bool bDontBroad
 	int iEntity = hEvent.GetInt("object_entindex");
 	int iIndex  = TFDB_FindRocketByEntity(iEntity);
 	
-	if (iIndex != -1)
+	if (iIndex == -1) return;
+	
+	int iClass = TFDB_GetRocketClass(iIndex);
+	
+	if (!(g_iRocketClassTrailFlags[iClass] & TrailFlag_ReplaceParticles)) return;
+	
+	bool bCritical = !!GetEntProp(iEntity, Prop_Send, "m_bCritical");
+	int iTeam = GetEntProp(iEntity, Prop_Send, "m_iTeamNum", 1);
+	
+	if (bCritical)
 	{
-		int iClass = TFDB_GetRocketClass(iIndex);
+		int iRedCriticalEntity = EntRefToEntIndex(g_iRocketRedCriticalEntity[iIndex]);
+		int iBluCriticalEntity = EntRefToEntIndex(g_iRocketBluCriticalEntity[iIndex]);
 		
-		if (g_iRocketClassTrailFlags[iClass] & TrailFlag_ReplaceParticles)
+		if (iRedCriticalEntity != -1 && iBluCriticalEntity != -1)
 		{
-			bool bCritical = !!GetEntProp(iEntity, Prop_Send, "m_bCritical");
-			int iTeam = GetEntProp(iEntity, Prop_Send, "m_iTeamNum", 1);
-			
-			if (bCritical)
+			if (iTeam == view_as<int>(TFTeam_Red))
 			{
-				int iRedCriticalEntity = EntRefToEntIndex(g_iRocketRedCriticalEntity[iIndex]);
-				int iBluCriticalEntity = EntRefToEntIndex(g_iRocketBluCriticalEntity[iIndex]);
-				
-				if (iRedCriticalEntity != -1 && iBluCriticalEntity != -1)
-				{
-					if (iTeam == view_as<int>(TFTeam_Red))
-					{
-						AcceptEntityInput(iBluCriticalEntity, "Stop");
-						AcceptEntityInput(iRedCriticalEntity, "Start");
-					}
-					else if (iTeam == view_as<int>(TFTeam_Blue))
-					{
-						AcceptEntityInput(iBluCriticalEntity, "Start");
-						AcceptEntityInput(iRedCriticalEntity, "Stop");
-					}
-				}
+				AcceptEntityInput(iBluCriticalEntity, "Stop");
+				AcceptEntityInput(iRedCriticalEntity, "Start");
 			}
-			
-			int iOtherEntity = EntRefToEntIndex(g_iRocketFakeEntity[iIndex]);
-			
-			if (iOtherEntity != -1) UpdateRocketSkin(iOtherEntity, iTeam, TestFlags(TFDB_GetRocketFlags(iIndex), RocketFlag_IsNeutral));
+			else if (iTeam == view_as<int>(TFTeam_Blue))
+			{
+				AcceptEntityInput(iBluCriticalEntity, "Start");
+				AcceptEntityInput(iRedCriticalEntity, "Stop");
+			}
 		}
 	}
+	
+	int iOtherEntity = EntRefToEntIndex(g_iRocketFakeEntity[iIndex]);
+	
+	if (iOtherEntity == -1) return;
+	
+	UpdateRocketSkin(iOtherEntity, iTeam, TestFlags(TFDB_GetRocketFlags(iIndex), RocketFlag_IsNeutral));
 }
 
 public void OnPlayerTeam(Event hEvent, char[] strEventName, bool bDontBroadcast)
@@ -266,7 +264,7 @@ public void TFDB_OnRocketCreated(int iIndex, int iEntity)
 	{
 		int iOtherEntity = CreateEntityByName("prop_dynamic");
 		
-		if (iOtherEntity && IsValidEntity(iOtherEntity))
+		if (iOtherEntity != -1)
 		{
 			SetEntProp(iEntity, Prop_Send, "m_nModelIndexOverrides", g_iEmptyModel);
 			
@@ -294,7 +292,7 @@ public void TFDB_OnRocketCreated(int iIndex, int iEntity)
 					int iRedCriticalEntity = CreateEntityByName("info_particle_system");
 					int iBluCriticalEntity = CreateEntityByName("info_particle_system");
 					
-					if ((iRedCriticalEntity && IsValidEdict(iRedCriticalEntity)) && (iBluCriticalEntity && IsValidEdict(iBluCriticalEntity)))
+					if ((iRedCriticalEntity != -1) && (iBluCriticalEntity != -1))
 					{
 						TeleportEntity(iRedCriticalEntity, fPosition, fAngles, view_as<float>({0.0, 0.0, 0.0}));
 						TeleportEntity(iBluCriticalEntity, fPosition, fAngles, view_as<float>({0.0, 0.0, 0.0}));
@@ -341,7 +339,7 @@ public void TFDB_OnRocketCreated(int iIndex, int iEntity)
 	{
 		int iTrailEntity = CreateEntityByName("info_particle_system");
 		
-		if (iTrailEntity && IsValidEdict(iTrailEntity))
+		if (iTrailEntity != -1)
 		{
 			TeleportEntity(iTrailEntity, fPosition, fAngles, view_as<float>({0.0, 0.0, 0.0}));
 			DispatchKeyValue(iTrailEntity, "effect_name", g_strRocketClassTrail[iClass]);
@@ -384,7 +382,7 @@ public void TFDB_OnRocketCreated(int iIndex, int iEntity)
 	{
 		int iSpriteEntity = CreateEntityByName("env_spritetrail");
 		
-		if (iSpriteEntity && IsValidEntity(iSpriteEntity))
+		if (iSpriteEntity != -1)
 		{
 			TeleportEntity(iSpriteEntity, fPosition, fAngles, view_as<float>({0.0, 0.0, 0.0}));
 			
@@ -475,19 +473,27 @@ public Action CmdHideTrails(int iClient, int iArgs)
 	if (iClient == 0)
 	{
 		ReplyToCommand(iClient, "Command is in-game only.");
+		
 		return Plugin_Handled;
 	}
 	
-	if (!iArgs && TFDB_IsDodgeballEnabled())
+	if (!TFDB_IsDodgeballEnabled())
 	{
-		g_bClientHideTrails[iClient] = !g_bClientHideTrails[iClient];
+		CReplyToCommand(iClient, "%t", "Command_Disabled");
 		
-		CPrintToChat(iClient, "%t", g_bClientHideTrails[iClient] ? "Command_DBHideParticles_Hidden" : "Command_DBHideParticles_Visible");
+		return Plugin_Handled;
 	}
-	else
+	
+	if (iArgs)
 	{
-		CReplyToCommand(iClient, "%t", TFDB_IsDodgeballEnabled() ? "Command_DBHideParticles_Usage" : "Command_Disabled");
+		CReplyToCommand(iClient, "%t", "Command_DBHideParticles_Usage");
+		
+		return Plugin_Handled;
 	}
+	
+	g_bClientHideTrails[iClient] = !g_bClientHideTrails[iClient];
+	
+	CPrintToChat(iClient, "%t", g_bClientHideTrails[iClient] ? "Command_DBHideParticles_Hidden" : "Command_DBHideParticles_Visible");
 	
 	return Plugin_Handled;
 }
@@ -497,19 +503,27 @@ public Action CmdHideSprites(int iClient, int iArgs)
 	if (iClient == 0)
 	{
 		ReplyToCommand(iClient, "Command is in-game only.");
+		
 		return Plugin_Handled;
 	}
 	
-	if (!iArgs && TFDB_IsDodgeballEnabled())
+	if (!TFDB_IsDodgeballEnabled())
 	{
-		g_bClientHideSprites[iClient] = !g_bClientHideSprites[iClient];
+		CReplyToCommand(iClient, "%t", "Command_Disabled");
 		
-		CPrintToChat(iClient, "%t", g_bClientHideSprites[iClient] ? "Command_DBHideSprites_Hidden" : "Command_DBHideSprites_Visible");
+		return Plugin_Handled;
 	}
-	else
+	
+	if (iArgs)
 	{
-		CReplyToCommand(iClient, "%t", TFDB_IsDodgeballEnabled() ? "Command_DBHideSprites_Usage" : "Command_Disabled");
+		CReplyToCommand(iClient, "%t", "Command_DBHideSprites_Usage");
+		
+		return Plugin_Handled;
 	}
+	
+	g_bClientHideSprites[iClient] = !g_bClientHideSprites[iClient];
+	
+	CPrintToChat(iClient, "%t", g_bClientHideSprites[iClient] ? "Command_DBHideSprites_Hidden" : "Command_DBHideSprites_Visible");
 	
 	return Plugin_Handled;
 }
@@ -521,22 +535,23 @@ void ParseConfigurations(const char[] strConfigFile)
 	FormatEx(strFileName, sizeof(strFileName), "configs/dodgeball/%s", strConfigFile);
 	BuildPath(Path_SM, strPath, sizeof(strPath), strFileName);
 	
-	if (FileExists(strPath, true))
+	if (!FileExists(strPath, true)) return;
+	
+	KeyValues kvConfig = new KeyValues("TF2_Dodgeball");
+	
+	if (kvConfig.ImportFromFile(strPath) == false) SetFailState("Error while parsing the configuration file.");
+	
+	kvConfig.GotoFirstSubKey();
+	
+	do
 	{
-		KeyValues kvConfig = new KeyValues("TF2_Dodgeball");
-		if (kvConfig.ImportFromFile(strPath) == false) SetFailState("Error while parsing the configuration file.");
-		kvConfig.GotoFirstSubKey();
+		char strSection[64]; kvConfig.GetSectionName(strSection, sizeof(strSection));
 		
-		do
-		{
-			char strSection[64]; kvConfig.GetSectionName(strSection, sizeof(strSection));
-			
-			if (StrEqual(strSection, "classes")) ParseClasses(kvConfig);
-		}
-		while (kvConfig.GotoNextKey());
-		
-		delete kvConfig;
+		if (StrEqual(strSection, "classes")) ParseClasses(kvConfig);
 	}
+	while (kvConfig.GotoNextKey());
+	
+	delete kvConfig;
 }
 
 void ParseClasses(KeyValues kvConfig)
@@ -583,6 +598,7 @@ void ParseClasses(KeyValues kvConfig)
 		g_iRocketClassCount++;
 	}
 	while (kvConfig.GotoNextKey());
+	
 	kvConfig.GoBack();
 }
 
@@ -600,6 +616,7 @@ StringMap ParseSpriteEntity(KeyValues kvConfig)
 		hBufferMap.SetString(strBuffer, strValue);
 	}
 	while (kvConfig.GotoNextKey(false));
+	
 	kvConfig.GoBack();
 	
 	return hBufferMap;
@@ -614,6 +631,7 @@ void UpdateRocketSkin(int iEntity, int iTeam, bool bNeutral)
 stock int GetAnalogueTeam(int iTeam)
 {
 	if (iTeam == view_as<int>(TFTeam_Red)) return view_as<int>(TFTeam_Blue);
+	
 	return view_as<int>(TFTeam_Red);
 }
 
@@ -621,12 +639,10 @@ stock int GetPrecachedModel(const char[] strModel)
 {
 	static int iModelPrecache = INVALID_STRING_TABLE;
 	
-	if (iModelPrecache == INVALID_STRING_TABLE)
+	if ((iModelPrecache == INVALID_STRING_TABLE) &&
+	    ((iModelPrecache = FindStringTable("modelprecache")) == INVALID_STRING_TABLE))
 	{
-		if ((iModelPrecache = FindStringTable("modelprecache")) == INVALID_STRING_TABLE)
-		{
-			return INVALID_STRING_INDEX;
-		}
+		return INVALID_STRING_INDEX;
 	}
 	
 	int iModelIndex = FindStringIndex(iModelPrecache, strModel);
@@ -643,12 +659,10 @@ stock int GetPrecachedParticle(const char[] strParticleSystem)
 {
 	static int iParticleEffectNames = INVALID_STRING_TABLE;
 	
-	if (iParticleEffectNames == INVALID_STRING_TABLE)
+	if ((iParticleEffectNames == INVALID_STRING_TABLE) &&
+	    ((iParticleEffectNames = FindStringTable("ParticleEffectNames")) == INVALID_STRING_TABLE))
 	{
-		if ((iParticleEffectNames = FindStringTable("ParticleEffectNames")) == INVALID_STRING_TABLE)
-		{
-			return INVALID_STRING_INDEX;
-		}
+		return INVALID_STRING_INDEX;
 	}
 	
 	int iParticleIndex = FindStringIndex(iParticleEffectNames, strParticleSystem);
@@ -673,12 +687,10 @@ stock int GetPrecachedGeneric(const char[] strGeneric)
 {
 	static int iGenericPrecache = INVALID_STRING_TABLE;
 	
-	if (iGenericPrecache == INVALID_STRING_TABLE)
+	if ((iGenericPrecache == INVALID_STRING_TABLE) &&
+	    ((iGenericPrecache = FindStringTable("genericprecache")) == INVALID_STRING_TABLE))
 	{
-		if ((iGenericPrecache = FindStringTable("genericprecache")) == INVALID_STRING_TABLE)
-		{
-			return INVALID_STRING_INDEX;
-		}
+		return INVALID_STRING_INDEX;
 	}
 	
 	int iGenericIndex = FindStringIndex(iGenericPrecache, strGeneric);

@@ -3,14 +3,17 @@
 
 #include <sourcemod>
 #include <sdkhooks>
+
+#undef REQUIRE_EXTENSIONS
 #include <collisionhook>
+#define REQUIRE_EXTENSIONS
 
 #include <tfdb>
 
 #define PLUGIN_NAME        "[TFDB] Anti-Sniping & Anti-Teamkilling"
 #define PLUGIN_AUTHOR      "x07x08"
 #define PLUGIN_DESCRIPTION "Blocks snipes and teamkills."
-#define PLUGIN_VERSION     "1.2.0"
+#define PLUGIN_VERSION     "1.2.1"
 #define PLUGIN_URL         "https://github.com/x07x08/TF2-Dodgeball-Modified"
 
 ConVar g_hCvarHookDamage;
@@ -44,19 +47,15 @@ public Action OnPlayerTakeDamage(int iVictim, int &iAttacker, int &iInflictor, f
 	
 	int iIndex = TFDB_FindRocketByEntity(iInflictor);
 	
-	if (iIndex != -1)
-	{
-		int iTarget = EntRefToEntIndex(TFDB_GetRocketTarget(iIndex));
-		
-		if (IsValidClient(iTarget) && (iVictim != iTarget))
-		{
-			fDamage = 0.0;
-			
-			return Plugin_Changed;
-		}
-	}
+	if (iIndex == -1) return Plugin_Continue;
 	
-	return Plugin_Continue;
+	int iTarget = EntRefToEntIndex(TFDB_GetRocketTarget(iIndex));
+	
+	if (!(IsValidClient(iTarget) && (iVictim != iTarget))) return Plugin_Continue;
+	
+	fDamage = 0.0;
+	
+	return Plugin_Changed;
 }
 
 public Action CH_PassFilter(int iEntity1, int iEntity2, bool &bResult)

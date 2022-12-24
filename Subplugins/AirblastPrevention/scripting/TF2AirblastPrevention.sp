@@ -10,7 +10,7 @@
 #define PLUGIN_NAME        "[TFDB] Airblast push prevention"
 #define PLUGIN_AUTHOR      "BloodyNightmare, Mitchell, edited by x07x08"
 #define PLUGIN_DESCRIPTION "Prevents users from pushing each other by airblasting."
-#define PLUGIN_VERSION     "1.2.1"
+#define PLUGIN_VERSION     "1.2.2"
 #define PLUGIN_URL         "https://github.com/x07x08/TF2-Dodgeball-Modified"
 
 ConVar g_hCvarCommandEnabled;
@@ -34,19 +34,18 @@ public void OnPluginStart()
 	
 	RegConsoleCmd("sm_ab", CmdAirblastPrevention, "Toggles push prevention.");
 	
-	if (TFDB_IsDodgeballEnabled())
+	if (!TFDB_IsDodgeballEnabled()) return;
+	
+	TFDB_OnRocketsConfigExecuted();
+	
+	for (int iClient = 1; iClient <= MaxClients; iClient++)
 	{
-		TFDB_OnRocketsConfigExecuted();
+		if (!IsClientInGame(iClient)) continue;
 		
-		for (int iClient = 1; iClient <= MaxClients; iClient++)
-		{
-			if (!IsClientInGame(iClient)) continue;
-			
-			SDKHook(iClient, SDKHook_WeaponCanUse, WeaponCanUseCallback);
-			
-			// Enabled by default
-			SetEntityFlags(iClient, GetEntityFlags(iClient) | FL_NOTARGET);
-		}
+		SDKHook(iClient, SDKHook_WeaponCanUse, WeaponCanUseCallback);
+		
+		// Enabled by default
+		SetEntityFlags(iClient, GetEntityFlags(iClient) | FL_NOTARGET);
 	}
 }
 

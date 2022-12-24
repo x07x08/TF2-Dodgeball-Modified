@@ -6,7 +6,7 @@
 #define PLUGIN_NAME        "[TFDB] Event fix"
 #define PLUGIN_AUTHOR      "x07x08"
 #define PLUGIN_DESCRIPTION "Fixes a very weird issue that happens when unhooking event callbacks..."
-#define PLUGIN_VERSION     "1.0.0"
+#define PLUGIN_VERSION     "1.0.1"
 #define PLUGIN_URL         "https://github.com/x07x08/TF2-Dodgeball-Modified"
 
 public Plugin myinfo =
@@ -43,37 +43,37 @@ public void OnPluginStart()
 
 public void OnRoundStart(Event hEvent, char[] strEventName, bool bDontBroadcast)
 {
-    return;
+	return;
 }
 
 public void OnSetupFinished(Event hEvent, char[] strEventName, bool bDontBroadcast)
 {
-    return;
+	return;
 }
 
 public void OnRoundEnd(Event hEvent, char[] strEventName, bool bDontBroadcast)
 {
-    return;
+	return;
 }
 
 public void OnPlayerSpawn(Event hEvent, char[] strEventName, bool bDontBroadcast)
 {
-    return;
+	return;
 }
 
 public void OnPlayerDeath(Event hEvent, char[] strEventName, bool bDontBroadcast)
 {
-    return;
+	return;
 }
 
 public void OnPlayerInventory(Event hEvent, char[] strEventName, bool bDontBroadcast)
 {
-    return;
+	return;
 }
 
 public void OnBroadcastAudio(Event hEvent, char[] strEventName, bool bDontBroadcast)
 {
-    return;
+	return;
 }
 
 public void OnObjectDeflected(Event hEvent, char[] strEventName, bool bDontBroadcast)
