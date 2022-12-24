@@ -1,6 +1,6 @@
 # Requirements
 
-* [CollisionHook](https://forums.alliedmods.net/showthread.php?t=197815)
+* <sup>Optional</sup> [CollisionHook](https://forums.alliedmods.net/showthread.php?t=197815)
     * Download it from [here](https://github.com/Adrianilloo/Collisionhook)
 
 # Description
