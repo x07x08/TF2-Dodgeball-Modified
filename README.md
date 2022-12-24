@@ -23,7 +23,7 @@ For a list of commands, check the configuration file located in [`addons/sourcem
 
 # Requirements
 - [Multi-Colors](https://github.com/Bara/Multi-Colors) (compile only).
-- [CollisionHook](https://forums.alliedmods.net/showthread.php?t=197815) (for the [Anti snipe](https://github.com/x07x08/TF2-Dodgeball-Modified/tree/main/Subplugins/AntiSnipe) plugin)
+- <sup>Optional</sup> [CollisionHook](https://forums.alliedmods.net/showthread.php?t=197815) (for the [Anti snipe](https://github.com/x07x08/TF2-Dodgeball-Modified/tree/main/Subplugins/AntiSnipe) plugin)
     * Download it from [here](https://github.com/Adrianilloo/Collisionhook)
 
 # Nuke model
