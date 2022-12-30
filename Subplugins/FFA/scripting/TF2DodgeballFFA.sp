@@ -536,6 +536,7 @@ int GetTeamAliveClientCount(int iTeam)
 stock int GetAnalogueTeam(int iTeam)
 {
 	if (iTeam == view_as<int>(TFTeam_Red)) return view_as<int>(TFTeam_Blue);
+	
 	return view_as<int>(TFTeam_Red);
 }
 

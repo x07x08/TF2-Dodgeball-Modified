@@ -15,7 +15,7 @@
 #define PLUGIN_NAME        "[TFDB] Admin menu"
 #define PLUGIN_AUTHOR      "x07x08"
 #define PLUGIN_DESCRIPTION "A pretty big menu for dodgeball"
-#define PLUGIN_VERSION     "1.0.3"
+#define PLUGIN_VERSION     "1.0.4"
 #define PLUGIN_URL         "https://github.com/x07x08/TF2-Dodgeball-Modified"
 
 enum RocketClassMenu
@@ -541,7 +541,8 @@ void DisplayRocketTargetMenu(int iClient, int iIndex)
 public int RocketTargetMenuHandler(Menu hMenu, MenuAction iMenuActions, int iParam1, int iParam2)
 {
 	char strBuffer[8]; hMenu.GetItem(0, strBuffer, sizeof(strBuffer));
-	int  iIndex = StringToInt(strBuffer);
+	int  iIndex  = StringToInt(strBuffer);
+	int  iEntity = EntRefToEntIndex(TFDB_GetRocketEntity(iIndex));
 	
 	switch (iMenuActions)
 	{
@@ -553,7 +554,8 @@ public int RocketTargetMenuHandler(Menu hMenu, MenuAction iMenuActions, int iPar
 			int iUserID = StringToInt(strBuffer);
 			int iTarget = GetClientOfUserId(iUserID);
 			
-			return iTarget == EntRefToEntIndex(TFDB_GetRocketTarget(iIndex)) ? ITEMDRAW_DISABLED : iStyle;
+			return ((iEntity == -1) || (iTarget == EntRefToEntIndex(TFDB_GetRocketTarget(iIndex))) ||
+			       ((iTarget == GetEntPropEnt(iEntity, Prop_Send, "m_hOwnerEntity")))) ? ITEMDRAW_DISABLED : iStyle;
 		}
 		
 		case MenuAction_Select :
@@ -576,7 +578,8 @@ public int RocketTargetMenuHandler(Menu hMenu, MenuAction iMenuActions, int iPar
 			{
 				CPrintToChat(iParam1, "%t", "Menu_InvalidClient");
 			}
-			else if (!CanUserTarget(iParam1, iTarget))
+			else if (!CanUserTarget(iParam1, iTarget) ||
+			        (iTarget == GetEntPropEnt(iEntity, Prop_Send, "m_hOwnerEntity")))
 			{
 				CPrintToChat(iParam1, "%t", "Menu_CannotTarget");
 			}
@@ -589,10 +592,14 @@ public int RocketTargetMenuHandler(Menu hMenu, MenuAction iMenuActions, int iPar
 				TFDB_SetRocketTarget(iIndex, EntIndexToEntRef(iTarget));
 				
 				int iClass         = TFDB_GetRocketClass(iIndex);
-				int iEntity        = EntRefToEntIndex(TFDB_GetRocketEntity(iIndex));
 				RocketFlags iFlags = TFDB_GetRocketFlags(iIndex);
 				
 				EmitRocketSound(RocketSound_Alert, iClass, iEntity, iTarget, iFlags);
+				
+				if (!(iFlags & RocketFlag_IsNeutral))
+				{
+					SetEntProp(iEntity, Prop_Send, "m_iTeamNum", GetAnalogueTeam(GetClientTeam(iTarget)), 1);
+				}
 				
 				LogAction(iParam1, iTarget, "\"%L\" changed the target of a rocket to \"%L\"", iParam1, iTarget);
 				CPrintToChat(iParam1, "%t", "Menu_ChangedTarget", iTarget);
@@ -2308,4 +2315,11 @@ void Internal_DestroySpawners()
 	}
 	
 	g_iSpawnersCount  = 0;
+}
+
+stock int GetAnalogueTeam(int iTeam)
+{
+	if (iTeam == view_as<int>(TFTeam_Red)) return view_as<int>(TFTeam_Blue);
+	
+	return view_as<int>(TFTeam_Red);
 }
