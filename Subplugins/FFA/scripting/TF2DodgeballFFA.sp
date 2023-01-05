@@ -10,7 +10,7 @@
 #define PLUGIN_NAME        "[TFDB] Free-for-All"
 #define PLUGIN_AUTHOR      "x07x08"
 #define PLUGIN_DESCRIPTION "Makes all rockets neutral"
-#define PLUGIN_VERSION     "1.1.1"
+#define PLUGIN_VERSION     "1.1.2"
 #define PLUGIN_URL         "https://github.com/x07x08/TF2-Dodgeball-Modified"
 
 bool  g_bLoaded;
@@ -80,11 +80,13 @@ public void TFDB_OnRocketsConfigExecuted()
 	{
 		if (!IsClientInGame(iClient)) continue;
 		
-		if (IsFakeClient(iClient)) g_iBotCount++;
-		
 		iTeam = GetClientTeam(iClient);
 		
-		if (iTeam >= 2) g_iOldTeam[iClient] = iTeam;
+		if (!(iTeam >= 2)) continue;
+		
+		g_iOldTeam[iClient] = iTeam;
+		
+		if (IsFakeClient(iClient)) g_iBotCount++;
 	}
 	
 	g_hCvarDisableOnBot.AddChangeHook(DisableOnBotCallback);

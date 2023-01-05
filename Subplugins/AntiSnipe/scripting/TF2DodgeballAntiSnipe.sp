@@ -13,7 +13,7 @@
 #define PLUGIN_NAME        "[TFDB] Anti-Sniping & Anti-Teamkilling"
 #define PLUGIN_AUTHOR      "x07x08"
 #define PLUGIN_DESCRIPTION "Blocks snipes and teamkills."
-#define PLUGIN_VERSION     "1.2.1"
+#define PLUGIN_VERSION     "1.2.2"
 #define PLUGIN_URL         "https://github.com/x07x08/TF2-Dodgeball-Modified"
 
 ConVar g_hCvarHookDamage;
@@ -32,6 +32,15 @@ public void OnPluginStart()
 {
 	g_hCvarHookDamage    = CreateConVar("tf_dodgeball_as_damage", "1", "Hook damage for anti-sniping?", _, true, 0.0, true, 1.0);
 	g_hCvarHookCollision = CreateConVar("tf_dodgeball_as_collision", "1", "Change player collisions for anti-sniping?", _, true, 0.0, true, 1.0);
+	
+	if (!TFDB_IsDodgeballEnabled()) return;
+	
+	for (int iClient = 1; iClient <= MaxClients; iClient++)
+	{
+		if (!IsClientInGame(iClient)) continue;
+		
+		SDKHook(iClient, SDKHook_OnTakeDamage, OnPlayerTakeDamage);
+	}
 }
 
 public void OnClientPutInServer(int iClient)
@@ -43,7 +52,7 @@ public void OnClientPutInServer(int iClient)
 
 public Action OnPlayerTakeDamage(int iVictim, int &iAttacker, int &iInflictor, float &fDamage, int &iDamageType)
 {
-	if (!TFDB_IsDodgeballEnabled() || !g_hCvarHookDamage.BoolValue) return Plugin_Continue;
+	if (!g_hCvarHookDamage.BoolValue) return Plugin_Continue;
 	
 	int iIndex = TFDB_FindRocketByEntity(iInflictor);
 	
