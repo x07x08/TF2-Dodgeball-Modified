@@ -1,5 +1,5 @@
 # Convars
-```c
+```ini
     tf_dodgeball_enablecfg        "sourcemod/dodgeball_enable.cfg"  - Config file to execute when enabling the Dodgeball game mode.
     tf_dodgeball_disablecfg       "sourcemod/dodgeball_disable.cfg" - Config file to execute when disabling the Dodgeball game mode.
     tf_dodgeball_sp_number        "3"     - How many steals before you get slayed?
@@ -9,6 +9,8 @@
     tf_dodgeball_dp_time          "5"     - How much time [in seconds] before delay prevention activates?
     tf_dodgeball_dp_speedup       "100"   - How much speed [in hammer units per second] should the rocket gain when delayed?
     tf_dodgeball_redirect_damage  "1"     - Reduce all damage when a rocket has an invalid target?
+    tf_dodgeball_sp_message       "1"     - Display the steal message(s)?
+    tf_dodgeball_dp_message       "1"     - Display the delay message(s)?
 ```
 
 # Commands
@@ -19,6 +21,7 @@ For a list of commands, check the configuration file located in [`addons/sourcem
 1. `TF2Dodgeball` : Its contents go inside `tf`.
 2. `Subplugins` : Copy the contents of a subplugin folder (ex. `Menu`) inside `tf/addons`.
 - The `README.md` files can be omitted.
+- It's recommended to install the [`EventFix`](https://github.com/x07x08/TF2-Dodgeball-Modified/tree/main/Subplugins/EventFix) subplugin.
 
 # Requirements
 - [Multi-Colors](https://github.com/Bara/Multi-Colors) (compile only).
