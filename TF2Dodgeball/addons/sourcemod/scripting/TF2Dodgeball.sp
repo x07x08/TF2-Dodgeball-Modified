@@ -20,7 +20,7 @@
 // ---- Plugin-related constants ---------------------------------------------------
 #define PLUGIN_NAME             "[TF2] Dodgeball"
 #define PLUGIN_AUTHOR           "Damizean, edited by x07x08"
-#define PLUGIN_VERSION          "1.9.3"
+#define PLUGIN_VERSION          "1.9.4"
 #define PLUGIN_CONTACT          "https://github.com/x07x08/TF2-Dodgeball-Modified"
 
 // ---- Flags and types constants --------------------------------------------------
@@ -48,6 +48,8 @@ ConVar g_hCvarDelayPrevention;
 ConVar g_hCvarDelayPreventionTime;
 ConVar g_hCvarDelayPreventionSpeedup;
 ConVar g_hCvarNoTargetRedirectDamage;
+ConVar g_hCvarStealMessage;
+ConVar g_hCvarDelayMessage;
 
 // -----<<< Gameplay >>>-----
 bool   g_bEnabled;                // Is the plugin enabled?
@@ -203,6 +205,8 @@ public void OnPluginStart()
 	g_hCvarDelayPreventionTime = CreateConVar("tf_dodgeball_dp_time", "5", "How much time (in seconds) before delay prevention activates?", _, true, 0.0, false);
 	g_hCvarDelayPreventionSpeedup = CreateConVar("tf_dodgeball_dp_speedup", "100", "How much speed (in hammer units per second) should the rocket gain when delayed?", _, true, 0.0, false);
 	g_hCvarNoTargetRedirectDamage = CreateConVar("tf_dodgeball_redirect_damage", "1", "Reduce all damage when a rocket has an invalid target?", _, true, 0.0, true, 1.0);
+	g_hCvarStealMessage = CreateConVar("tf_dodgeball_sp_message", "1", "Display the steal message(s)?", _, true, 0.0, true, 1.0);
+	g_hCvarDelayMessage = CreateConVar("tf_dodgeball_dp_message", "1", "Display the delay message(s)?", _, true, 0.0, true, 1.0);
 	
 	g_hSpawnersTrie = new StringMap();
 	g_fTickModifier = 0.1 / GetTickInterval();
@@ -2661,16 +2665,25 @@ void CheckStolenRocket(int iClient, int iIndex)
 		bStealArray[iClient].rocketsStolen++;
 		SlapPlayer(iClient, 0, true);
 		CPrintToChat(iClient, "%t", "DBSteal_Warning_Client", bStealArray[iClient].rocketsStolen, g_hCvarStealPreventionNumber.IntValue);
-		CSkipNextClient(iClient);
-		CPrintToChatAll("%t", "DBSteal_Announce_All", iClient, iTarget);
+		
+		if (g_hCvarStealMessage.BoolValue)
+		{
+			CSkipNextClient(iClient);
+			CPrintToChatAll("%t", "DBSteal_Announce_All", iClient, iTarget);
+		}
+		
 		bStealArray[iClient].stoleRocket = false;
 	}
 	else
 	{
 		ForcePlayerSuicide(iClient);
 		CPrintToChat(iClient, "%t", "DBSteal_Slay_Client");
-		CSkipNextClient(iClient);
-		CPrintToChatAll("%t", "DBSteal_Announce_Slay_All", iClient);
+		
+		if (g_hCvarStealMessage.BoolValue)
+		{
+			CSkipNextClient(iClient);
+			CPrintToChatAll("%t", "DBSteal_Announce_Slay_All", iClient);
+		}
 	}
 	
 	Internal_SetRocketState(iIndex, (g_iRocketState[iIndex] | RocketState_Stolen));
@@ -2855,7 +2868,11 @@ void CheckRoundDelays(int iIndex)
 	
 	if (!(g_iRocketState[iIndex] & RocketState_Delayed))
 	{
-		CPrintToChatAll("%t", "DBDelay_Announce_All", iTarget);
+		if (g_hCvarDelayMessage.BoolValue)
+		{
+			CPrintToChatAll("%t", "DBDelay_Announce_All", iTarget);
+		}
+		
 		EmitSoundToAll(SOUND_DEFAULT_SPEEDUP, iEntity, SNDCHAN_AUTO, SNDLEVEL_GUNFIRE);
 		
 		Internal_SetRocketState(iIndex, (g_iRocketState[iIndex] | RocketState_Delayed));
@@ -4394,5 +4411,29 @@ void Internal_SetRocketState(int iIndex, RocketState iNewState)
 	g_iRocketState[iIndex] = iNewState;
 	Forward_OnRocketStateChanged(iIndex, iState, iNewState);
 }
+
+/*
+	https://github.com/Bara/Multi-Colors/pull/13/commits/d908feddaababa450a75cb539134ce20e63a7804
+	
+	This botch was written to make the 2.1.2 version of multicolors.inc compatible with the 2.2.0 version
+	from this commit.
+	
+	It will break if CSkipNextClient is added as it is or the other 2 includes are removed without adding
+	the function. Hopefully the pull request is fixed.
+*/
+
+#if defined _multicolors_included && defined _more_colors_included && defined _colors_included
+stock void CSkipNextClient(int iClient)
+{
+	if (!IsSource2009())
+	{
+		C_SkipNextClient(iClient);
+	}
+	else
+	{
+		MC_SkipNextClient(iClient);
+	}
+}
+#endif
 
 // EOF

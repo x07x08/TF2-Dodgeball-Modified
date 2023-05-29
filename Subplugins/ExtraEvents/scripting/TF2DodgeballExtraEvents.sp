@@ -9,7 +9,7 @@
 #define PLUGIN_NAME        "[TFDB] Extra events"
 #define PLUGIN_AUTHOR      "x07x08"
 #define PLUGIN_DESCRIPTION "Adds more events for use with external commands."
-#define PLUGIN_VERSION     "1.0.0"
+#define PLUGIN_VERSION     "1.0.1"
 #define PLUGIN_URL         "https://github.com/x07x08/TF2-Dodgeball-Modified"
 
 int g_iRocketClassCount;
@@ -35,7 +35,7 @@ public void OnPluginStart()
 	{
 		if (!TFDB_IsValidRocket(iIndex)) continue;
 		
-		SDKHook(TFDB_GetRocketEntity(iIndex), SDKHook_Touch, OnTouch);
+		SDKHook(EntRefToEntIndex(TFDB_GetRocketEntity(iIndex)), SDKHook_Touch, OnTouch);
 	}
 }
 

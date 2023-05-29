@@ -10,7 +10,7 @@
 #define PLUGIN_NAME        "[TFDB] Free-for-All"
 #define PLUGIN_AUTHOR      "x07x08"
 #define PLUGIN_DESCRIPTION "Makes all rockets neutral"
-#define PLUGIN_VERSION     "1.1.2"
+#define PLUGIN_VERSION     "1.1.3"
 #define PLUGIN_URL         "https://github.com/x07x08/TF2-Dodgeball-Modified"
 
 bool  g_bLoaded;
@@ -137,7 +137,8 @@ public void OnClientDisconnect(int iClient)
 	
 	int iOtherTeam = GetAnalogueTeam(iTeam);
 	
-	if (((GetTeamAliveClientCount(iTeam) - 1) == 0) && ((GetTeamAliveClientCount(iOtherTeam) - 1) >= 1))
+	if (((GetTeamAliveClientCount(iTeam) - view_as<int>(IsPlayerAlive(iClient))) == 0) &&
+	    ((GetTeamAliveClientCount(iOtherTeam) - 1) >= 1))
 	{
 		ChangeAliveClientTeam(GetRandomTeamAliveClient(iOtherTeam), iTeam);
 	}
@@ -154,7 +155,10 @@ public void OnPlayerTeam(Event hEvent, char[] strEventName, bool bDontBroadcast)
 	int iTeam    = hEvent.GetInt("team");
 	int iOldTeam = hEvent.GetInt("oldteam");
 	
-	if (!TFDB_GetRoundStarted())
+	if (!g_bFFAEnabled ||
+	    !g_hCvarSwitchTeams.BoolValue ||
+	    (g_hCvarDisableOnBot.BoolValue && g_iBotCount) ||
+	    !TFDB_GetRoundStarted())
 	{
 		g_iOldTeam[iClient] = iTeam;
 	}
@@ -167,7 +171,9 @@ public void OnPlayerTeam(Event hEvent, char[] strEventName, bool bDontBroadcast)
 		{
 			g_iOldTeam[iClient] = iTeam;
 		}
-		else if ((iOldTeam >= 2) && (((GetTeamAliveClientCount(iOldTeam) - 1) == 0) && ((GetTeamAliveClientCount(iTeam) - 1) >= 1)))
+		else if ((iOldTeam >= 2) &&
+		         ((GetTeamAliveClientCount(iOldTeam) - view_as<int>(IsPlayerAlive(iClient))) == 0) &&
+		         ((GetTeamAliveClientCount(iTeam) - 1) >= 1))
 		{
 			ChangeAliveClientTeam(GetRandomTeamAliveClient(iTeam), iOldTeam);
 		}
@@ -228,17 +234,22 @@ public void OnPlayerDeath(Event hEvent, char[] strEventName, bool bDontBroadcast
 
 public void OnRoundStart(Event hEvent, char[] strEventName, bool bDontBroadcast)
 {
+	if (!g_bFFAEnabled ||
+	    !g_hCvarSwitchTeams.BoolValue ||
+	    (g_hCvarDisableOnBot.BoolValue && g_iBotCount))
+	{
+		return;
+	}
+	
 	int iTeam;
 	
 	for (int iClient = 1; iClient <= MaxClients; iClient++)
 	{
 		if (!IsClientInGame(iClient) || ((iTeam = GetClientTeam(iClient)) <= 1)) continue;
 		
-		if (g_hCvarSwitchTeams.BoolValue &&
-		    (!g_hCvarDisableOnBot.BoolValue || !g_iBotCount) &&
-		    (g_iOldTeam[iClient] >= 2) &&
+		if ((g_iOldTeam[iClient] >= 2) &&
 		    (g_iOldTeam[iClient] != iTeam) &&
-		    ((GetTeamAliveClientCount(iTeam) - 1) >= 1))
+		    ((GetTeamAliveClientCount(iTeam) - view_as<int>(IsPlayerAlive(iClient))) >= 1))
 		{
 			ChangeClientTeam(iClient, g_iOldTeam[iClient]);
 		}

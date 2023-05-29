@@ -9,7 +9,7 @@
 #define PLUGIN_NAME        "[TFDB] No block"
 #define PLUGIN_AUTHOR      "x07x08"
 #define PLUGIN_DESCRIPTION "Removes collision between enemies."
-#define PLUGIN_VERSION     "1.0.1"
+#define PLUGIN_VERSION     "1.0.2"
 #define PLUGIN_URL         "https://github.com/x07x08/TF2-Dodgeball-Modified"
 
 #define COLLISION_GROUP_PUSHAWAY 17
@@ -29,14 +29,14 @@ public void OnPluginStart()
 {
 	if (!TFDB_IsDodgeballEnabled()) return;
 	
+	TFDB_OnRocketsConfigExecuted();
+	
 	for (int iClient = 1; iClient <= MaxClients; iClient++)
 	{
 		if (!IsClientInGame(iClient) || !IsPlayerAlive(iClient)) continue;
 		
 		SetEntityCollisionGroup(iClient, COLLISION_GROUP_PUSHAWAY);
 	}
-	
-	TFDB_OnRocketsConfigExecuted();
 }
 
 public void TFDB_OnRocketsConfigExecuted()
