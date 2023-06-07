@@ -9,7 +9,7 @@
 #define PLUGIN_NAME        "[TFDB] No block"
 #define PLUGIN_AUTHOR      "x07x08"
 #define PLUGIN_DESCRIPTION "Removes collision between enemies."
-#define PLUGIN_VERSION     "1.0.2"
+#define PLUGIN_VERSION     "1.0.3"
 #define PLUGIN_URL         "https://github.com/x07x08/TF2-Dodgeball-Modified"
 
 #define COLLISION_GROUP_PUSHAWAY 17
@@ -35,7 +35,7 @@ public void OnPluginStart()
 	{
 		if (!IsClientInGame(iClient) || !IsPlayerAlive(iClient)) continue;
 		
-		SetEntityCollisionGroup(iClient, COLLISION_GROUP_PUSHAWAY);
+		SetEntProp(iClient, Prop_Data, "m_CollisionGroup", COLLISION_GROUP_PUSHAWAY);
 	}
 }
 
@@ -63,5 +63,6 @@ public void OnPlayerSpawn(Event hEvent, char[] strEventName, bool bDontBroadcast
 	
 	if (GetClientTeam(iClient) <= 1) return;
 	
-	SetEntityCollisionGroup(iClient, COLLISION_GROUP_PUSHAWAY);
+	// SetEntityCollisionGroup makes the server crash after a while. No idea why.
+	SetEntProp(iClient, Prop_Data, "m_CollisionGroup", COLLISION_GROUP_PUSHAWAY);
 }
