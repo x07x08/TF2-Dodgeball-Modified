@@ -6,7 +6,7 @@
 #define PLUGIN_NAME        "[TFDB] Event fix"
 #define PLUGIN_AUTHOR      "x07x08"
 #define PLUGIN_DESCRIPTION "Fixes a very weird issue that happens when unhooking event callbacks..."
-#define PLUGIN_VERSION     "1.0.1"
+#define PLUGIN_VERSION     "1.0.2"
 #define PLUGIN_URL         "https://github.com/x07x08/TF2-Dodgeball-Modified"
 
 public Plugin myinfo =
@@ -29,59 +29,35 @@ public void OnPluginStart()
 	//
 	// Refer to : https://github.com/x07x08/TF2-Dodgeball-Modified/issues/7
 	
-	HookEvent("teamplay_round_start", OnRoundStart);
-	HookEvent("arena_round_start", OnSetupFinished);
-	HookEvent("teamplay_round_win", OnRoundEnd);
-	HookEvent("player_spawn", OnPlayerSpawn);
-	HookEvent("player_death", OnPlayerDeath);
-	HookEvent("post_inventory_application", OnPlayerInventory);
-	HookEvent("teamplay_broadcast_audio", OnBroadcastAudio);
-	HookEvent("object_deflected", OnObjectDeflected);
+	// https://github.com/alliedmodders/sourcemod/blob/5addaffa5665f353c874f45505914ab692535c24/core/EventManager.cpp#L262
+	//
+	// If n plugins try to unhook the same event (at the same time, like inside OnMapEnd), the last one always fails and
+	// throws an EventHookErr_NotActive error.
+	//
+	// Example :
+	// Plugins 1, 2 and 3 hook the "player_team" event inside OnConfigsExecuted and unhook it inside OnMapEnd.
+	// Plugin 3 will always throw (if it was the last one loaded).
+	//
+	// This might happen because the event manager wrongly removes the entire event structure while the
+	// last plugin hasn't unloaded its events (throws on line 268) or there's an off-by-one error (line(s) 295 and / or 309)
+	// that causes the former to occur.
+	//
+	// This issue will not happen if the event is hooked in another plugin and never unhooked.
+	// The best way to observe it is on a clean install of SourceMod.
 	
-	HookEvent("player_team", OnPlayerTeam);
+	HookEvent("teamplay_round_start", VoidCallback);
+	HookEvent("arena_round_start", VoidCallback);
+	HookEvent("teamplay_round_win", VoidCallback);
+	HookEvent("player_spawn", VoidCallback);
+	HookEvent("player_death", VoidCallback);
+	HookEvent("post_inventory_application", VoidCallback);
+	HookEvent("teamplay_broadcast_audio", VoidCallback);
+	HookEvent("object_deflected", VoidCallback);
+	
+	HookEvent("player_team", VoidCallback);
 }
 
-public void OnRoundStart(Event hEvent, char[] strEventName, bool bDontBroadcast)
-{
-	return;
-}
-
-public void OnSetupFinished(Event hEvent, char[] strEventName, bool bDontBroadcast)
-{
-	return;
-}
-
-public void OnRoundEnd(Event hEvent, char[] strEventName, bool bDontBroadcast)
-{
-	return;
-}
-
-public void OnPlayerSpawn(Event hEvent, char[] strEventName, bool bDontBroadcast)
-{
-	return;
-}
-
-public void OnPlayerDeath(Event hEvent, char[] strEventName, bool bDontBroadcast)
-{
-	return;
-}
-
-public void OnPlayerInventory(Event hEvent, char[] strEventName, bool bDontBroadcast)
-{
-	return;
-}
-
-public void OnBroadcastAudio(Event hEvent, char[] strEventName, bool bDontBroadcast)
-{
-	return;
-}
-
-public void OnObjectDeflected(Event hEvent, char[] strEventName, bool bDontBroadcast)
-{
-	return;
-}
-
-public void OnPlayerTeam(Event hEvent, char[] strEventName, bool bDontBroadcast)
+public void VoidCallback(Event hEvent, char[] strEventName, bool bDontBroadcast)
 {
 	return;
 }
