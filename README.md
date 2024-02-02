@@ -50,7 +50,7 @@ Report bugs using the [Issues](https://github.com/x07x08/TF2-Dodgeball-Modified/
 
 # Credits
 1. The original YADB plugin by Damizean : [AlliedMods Link](https://forums.alliedmods.net/showthread.php?t=134503)
-2. The updated YADB plugin by bloody & lizzy : [AlliedMods Link](https://forums.alliedmods.net/showthread.php?p=2534328) | [GitHub Link](https://github.com/bloodgit/TF2-Dodgeball)
+2. The updated YADB plugin by bloody & lizzy : [AlliedMods Link](https://forums.alliedmods.net/showthread.php?p=2534328) | [GitHub Account](https://github.com/keybangz)
 3. Dodgeball Redux by ClassicGuzzi : [AlliedMods Link](https://forums.alliedmods.net/showthread.php?p=2226728) | [GitHub Link](https://github.com/ClassicSpeed/dodgeball)
 4. BloodyNightmare and Mitchell for the original airblast prevention plugin : [AlliedMods Link](https://forums.alliedmods.net/showthread.php?t=233475)
 5. Syntax converter batch by Dragokas : [AlliedMods Link](https://forums.alliedmods.net/showpost.php?p=2593268&postcount=54)
