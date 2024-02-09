@@ -2882,6 +2882,7 @@ void CheckRoundDelays(int iIndex)
 	else
 	{
 		g_fRocketSpeed[iIndex] += g_hCvarDelayPreventionSpeedup.FloatValue;
+		g_fRocketMphSpeed[iIndex] = g_fRocketSpeed[iIndex] * 0.042614;
 	}
 }
 
