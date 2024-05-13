@@ -1,3 +1,5 @@
+Check [this rewrite](https://github.com/Mikah31/TF2-Dodgeball-Unified) if you want something more sophisticated.
+
 # Convars
 ```ini
     tf_dodgeball_enablecfg        "sourcemod/dodgeball_enable.cfg"  - Config file to execute when enabling the Dodgeball game mode.
