@@ -4258,38 +4258,35 @@ public any Native_SetRocketState(Handle hPlugin, int iNumParams)
 
 public any Native_GetStealInfo(Handle hPlugin, int iNumParams)
 {
-	int iClient = GetNativeCell(1);
-	
-	DataPack hPack = new DataPack();
-	hPack.WriteCellArray(bStealArray[iClient], sizeof(eRocketSteal));
-	
-	DataPack hClone = view_as<DataPack>(CloneHandle(hPack, hPlugin));
-	
-	delete hPack;
-	
-	return hClone;
+    int iClient = GetNativeCell(1);
+    
+    DataPack hPack = new DataPack();
+    hPack.WriteCell(bStealArray[iClient].stoleRocket ? 1 : 0);  // Convert bool to int
+    hPack.WriteCell(bStealArray[iClient].rocketsStolen);
+    
+    DataPack hClone = view_as<DataPack>(CloneHandle(hPack, hPlugin));
+    
+    delete hPack;
+    return hClone;
 }
 
 public any Native_SetStealInfo(Handle hPlugin, int iNumParams)
 {
-	int iClient = GetNativeCell(1);
-	
-	DataPack hPack = GetNativeCell(2);
-	
-	hPack = view_as<DataPack>(CloneHandle(hPack));
-	
-	eRocketSteal eStealArray;
-	
-	hPack.Reset();
-	hPack.ReadCellArray(eStealArray, sizeof(eRocketSteal));
-	
-	bStealArray[iClient] = eStealArray;
-	
-	delete hPack;
-	
-	return 0;
+    int iClient = GetNativeCell(1);
+    DataPack hPack = GetNativeCell(2);
+    
+    hPack = view_as<DataPack>(CloneHandle(hPack));
+    hPack.Reset();
+    
+    eRocketSteal eStealArray;
+    eStealArray.stoleRocket = (hPack.ReadCell() != 0);  // Convert int back to bool
+    eStealArray.rocketsStolen = hPack.ReadCell();
+    
+    bStealArray[iClient] = eStealArray;
+    
+    delete hPack;
+    return 0;
 }
-
 void Forward_OnRocketCreated(int iIndex, int iEntity)
 {
 	Call_StartForward(g_hForwardOnRocketCreated);
