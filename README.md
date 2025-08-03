@@ -1,4 +1,4 @@
-Check [this rewrite](https://github.com/Mikah31/TF2-Dodgeball-Unified) if you want something more sophisticated.
+Check [this rewrite](https://github.com/Mikah31/TF2-Dodgeball-Unified) if you want something more sophisticated or the [VScript port]()
 
 # Convars
 ```ini
