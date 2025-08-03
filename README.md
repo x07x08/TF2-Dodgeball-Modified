@@ -65,8 +65,8 @@ tf_dodgeball_redirect_damage  "1"      // If 1, reduces damage when a rockets ta
 
 // Anti-Grief Taunt System
 tf_dodgeball_sp_tauntcheck        "1"      // If 1, enables the anti-grief taunt system.
-tf_dodgeball_sp_taunt_distance    "128.0"  // Max distance a taunting player can be from a rocket's target to block a steal.
-tf_dodgeball_sp_taunt_cooldown    "2.0"    // Seconds before a player's taunt can block a steal again.
+tf_dodgeball_sp_taunt_distance    "128.0"  // Max distance a taunting player can be from a rockets target to block a steal.
+tf_dodgeball_sp_taunt_cooldown    "2.0"    // Seconds before a players taunt can block a steal again.
 tf_dodgeball_sp_taunt_maxtime     "5.0"    // Max seconds a single taunt can block steals before the block expires.
 
 // Messaging
