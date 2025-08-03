@@ -109,4 +109,4 @@ Please report any bugs or issues you encounter using the [**Issues**](https://gi
 * **Dodgeball Redux by ClassicGuzzi**: [AlliedMods Link](https://forums.alliedmods.net/showthread.php?p=2226728) | [GitHub Link](https://github.com/ClassicSpeed/dodgeball)
 * **BloodyNightmare and Mitchell for the original airblast prevention plugin**: [AlliedMods Link](https://forums.alliedmods.net/showthread.php?t=233475)
 * **Syntax converter batch by Dragokas**: [AlliedMods Link](https://forums.alliedmods.net/showpost.php?p=2593268&postcount=54)
-* **To x07x08 for advancing dodgeball furher as TF2-Dodgeball-Modified [GitHub Account](https://github.com/x07x08)
+* **To x07x08 for advancing dodgeball furher as TF2-Dodgeball-Modified** [GitHub Account](https://github.com/x07x08)
