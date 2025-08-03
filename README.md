@@ -2,8 +2,6 @@
 
 This project is a modified and updated version of the classic TF2 Dodgeball gamemode for SourceMod. It builds upon the work of several developers in the community to provide a stable, configurable, and extensible Dodgeball experience.
 
-For a more sophisticated rewrite of this gamemode, consider checking out [TF2 Dodgeball Unified by Mikah31](https://github.com/Mikah31/TF2-Dodgeball-Unified).
-
 ---
 ## ✨ Key Features
 
