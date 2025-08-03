@@ -18,6 +18,8 @@ public void OnRoundStart(Event hEvent, char[] strEventName, bool bDontBroadcast)
 	{
 		g_eStealInfo[iClient].stoleRocket = false;
 		g_eStealInfo[iClient].rocketsStolen = 0;
+		g_fPlayerTauntStartTime[iClient] = 0.0;
+		g_fLastTauntBlockTime[iClient] = 0.0;
 	}
 }
 
@@ -92,6 +94,8 @@ public void OnPlayerDeath(Event hEvent, char[] strEventName, bool bDontBroadcast
 
 	g_eStealInfo[iVictim].stoleRocket = false;
 	g_eStealInfo[iVictim].rocketsStolen = 0;
+	g_fPlayerTauntStartTime[iVictim] = 0.0;
+	g_fLastTauntBlockTime[iVictim] = 0.0;
 
 	g_iLastDeadClient = iVictim;
 	g_iLastDeadTeam = GetClientTeam(iVictim);
@@ -117,6 +121,15 @@ public void OnPlayerDeath(Event hEvent, char[] strEventName, bool bDontBroadcast
 	{
 		ExecuteCommands(g_hRocketClassCmdsOnKill[iClass], iClass, iInflictor, iAttacker, iTarget, g_iLastDeadClient, fSpeed, iDeflections, fMphSpeed);
 	}
+}
+
+public void OnPlayerTaunt(Event hEvent, const char[] strEventName, bool bDontBroadcast)
+{
+    int iClient = GetClientOfUserId(hEvent.GetInt("userid"));
+    if (IsValidClient(iClient))
+    {
+        g_fPlayerTauntStartTime[iClient] = GetGameTime();
+    }
 }
 
 public void OnPlayerInventory(Event hEvent, char[] strEventName, bool bDontBroadcast)
@@ -246,6 +259,8 @@ public void OnClientDisconnect(int iClient)
 {
 	g_eStealInfo[iClient].stoleRocket = false;
 	g_eStealInfo[iClient].rocketsStolen = 0;
+	g_fPlayerTauntStartTime[iClient] = 0.0;
+	g_fLastTauntBlockTime[iClient] = 0.0;
 
 	if (iClient == g_iLastDeadClient)
 	{
@@ -405,4 +420,5 @@ public Action OnTFExplosion(const char[] strTEName, const int[] iClients, int iN
 	bIgnoreHook = true;
 	TE_Send(iClients, iNumClients, fDelay);
 	return Plugin_Stop;
+
 }
