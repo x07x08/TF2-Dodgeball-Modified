@@ -24,8 +24,7 @@ For a more sophisticated rewrite of this gamemode, consider checking out [TF2 Do
     * Copy the `addons` folder from within `TF2Dodgeball` and merge it into your server's `tf/` directory. This will correctly place the plugin, configurations, and translation files.
 3.  **Install Subplugins (Optional)**:
     * Navigate to the `Subplugins` folder in the release package.
-    * Choose a subplugin (e.g., `Menu`, `EventFix`) and copy its contents into your server's `tf/addons/` directory.
-    * **Note**: It is highly recommended to install the `EventFix` subplugin.
+    * Choose a subplugin (e.g., `Menu`, `Trails`) and copy its contents into your server's `tf/addons/` directory if you need them.
 4.  **Install Requirements**: Ensure the required dependencies (see below) are installed on your server.
 5.  **Restart Your Server**: Either restart your server or change maps for the changes to take effect.
 
