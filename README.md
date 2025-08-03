@@ -6,6 +6,7 @@ This project is a modified and updated version of the classic TF2 Dodgeball game
 ## ✨ Key Features
 
 * **Advanced Gameplay Mechanics**: Incorporates essential features like **steal and delay prevention**, plus the popular **"keep direction"** feature from Dodgeball Redux.
+* **Advanced Anti-Grief**: A multi-layered taunt-check system prevents players from griefing teammates by blocking steals, complete with proximity, cooldown, and duration checks.
 * **Dual Homing Modes**: Choose between two distinct rocket behaviors: a modern, smooth `"homing"` and a classic, more direct `"legacy homing"`.
 * **Extensive Rocket Customization**: Define rocket classes with unique models, sounds, speeds, turn rates, and damage properties via configuration files.
 * **Rich Event System**: Use parameters like `@rocket`, `@owner`, and `@target` to trigger custom server commands on in-game events (`on spawn`, `on deflect`, `on kill`, `on explode`).
@@ -46,25 +47,31 @@ This project is a modified and updated version of the classic TF2 Dodgeball game
 ### Server Commands
 These commands can be used in your configuration files for event scripting.
 
-| Command | Parameters | Description |
-| :--- | :--- | :--- |
-| `tf_dodgeball_explosion` | `<client_index>` | Creates a large visual explosion at the target client's location. |
-| `tf_dodgeball_shockwave` | `<client> <damage> <force> <radius> <falloff>` | Applies a physics-based shockwave originating from the client. |
+| Command                  | Parameters                                   | Description                                                        |
+| :----------------------- | :------------------------------------------- | :----------------------------------------------------------------- |
+| `tf_dodgeball_explosion` | `<client_index>`                             | Creates a large visual explosion at the target client's location.  |
+| `tf_dodgeball_shockwave` | `<client> <damage> <force> <radius> <falloff>` | Applies a physics-based shockwave originating from the client.     |
 
 ### Console Variables (ConVars)
 ```ini
 // Gameplay
-tf_dodgeball_sp_number        "3"     // How many steals before a player is slain.
-tf_dodgeball_sp_damage        "0"     // If 1, reduces all damage on stolen rockets.
-tf_dodgeball_sp_distance      "48.0"  // The minimum distance between players for a steal to register.
-tf_dodgeball_delay_prevention "1"     // Enables the system to prevent players from delaying the round.
-tf_dodgeball_dp_time          "5"     // Seconds before a rocket is considered "delayed" and starts speeding up.
-tf_dodgeball_dp_speedup       "100"   // How many Hammer Units/sec are added to a delayed rocket's speed.
-tf_dodgeball_redirect_damage  "1"     // If 1, reduces damage when a rocket's target is invalid (e.g., disconnects).
+tf_dodgeball_sp_number        "3"      // How many steals before a player is slain.
+tf_dodgeball_sp_damage        "0"      // If 1, reduces all damage on stolen rockets.
+tf_dodgeball_sp_distance      "48.0"   // The minimum distance between players for a steal to register.
+tf_dodgeball_delay_prevention "1"      // Enables the system to prevent players from delaying the round.
+tf_dodgeball_dp_time          "5"      // Seconds before a rocket is considered "delayed" and starts speeding up.
+tf_dodgeball_dp_speedup       "100"    // How many Hammer Units/sec are added to a delayed rocket's speed.
+tf_dodgeball_redirect_damage  "1"      // If 1, reduces damage when a rocket's target is invalid (e.g., disconnects).
+
+// Anti-Grief Taunt System
+tf_dodgeball_sp_tauntcheck        "1"      // If 1, enables the anti-grief taunt system.
+tf_dodgeball_sp_taunt_distance    "128.0"  // Max distance a taunting player can be from a rocket's target to block a steal.
+tf_dodgeball_sp_taunt_cooldown    "2.0"    // Seconds before a player's taunt can block a steal again.
+tf_dodgeball_sp_taunt_maxtime     "5.0"    // Max seconds a single taunt can block steals before the block expires.
 
 // Messaging
-tf_dodgeball_sp_message       "1"     // Toggles the display of rocket steal messages in chat.
-tf_dodgeball_dp_message       "1"     // Toggles the display of round delay messages in chat.
+tf_dodgeball_sp_message       "1"      // Toggles the display of rocket steal messages in chat.
+tf_dodgeball_dp_message       "1"      // Toggles the display of round delay messages in chat.
 
 // Config Files
 tf_dodgeball_enablecfg        "sourcemod/dodgeball_enable.cfg"  // Config file to execute when Dodgeball mode enables.
@@ -102,3 +109,4 @@ Please report any bugs or issues you encounter using the [**Issues**](https://gi
 * **Dodgeball Redux by ClassicGuzzi**: [AlliedMods Link](https://forums.alliedmods.net/showthread.php?p=2226728) | [GitHub Link](https://github.com/ClassicSpeed/dodgeball)
 * **BloodyNightmare and Mitchell for the original airblast prevention plugin**: [AlliedMods Link](https://forums.alliedmods.net/showthread.php?t=233475)
 * **Syntax converter batch by Dragokas**: [AlliedMods Link](https://forums.alliedmods.net/showpost.php?p=2593268&postcount=54)
+* **To x07x08 for advancing dodgeball furher as TF2-Dodgeball-Modified [GitHub Account](https://github.com/x07x08)
