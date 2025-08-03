@@ -36,6 +36,7 @@ void EnableDodgeBall()
 	HookEvent("post_inventory_application", OnPlayerInventory, EventHookMode_Post);
 	HookEvent("teamplay_broadcast_audio", OnBroadcastAudio, EventHookMode_Pre);
 	HookEvent("object_deflected", OnObjectDeflected);
+	HookEvent("player_taunt", OnPlayerTaunt, EventHookMode_Post);
 
 	AddMultiTargetFilter("@stealer", MLTargetFilterStealer, "last stealer", false);
 	AddMultiTargetFilter("@!stealer", MLTargetFilterStealer, "non last stealer", false);
@@ -156,4 +157,5 @@ public Action OnDodgeBallGameFrame(Handle hTimer, any Data)
 	}
 
 	return Plugin_Continue;
+
 }
