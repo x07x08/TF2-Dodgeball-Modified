@@ -60,8 +60,8 @@ tf_dodgeball_sp_damage        "0"      // If 1, reduces all damage on stolen roc
 tf_dodgeball_sp_distance      "48.0"   // The minimum distance between players for a steal to register.
 tf_dodgeball_delay_prevention "1"      // Enables the system to prevent players from delaying the round.
 tf_dodgeball_dp_time          "5"      // Seconds before a rocket is considered "delayed" and starts speeding up.
-tf_dodgeball_dp_speedup       "100"    // How many Hammer Units/sec are added to a delayed rocket's speed.
-tf_dodgeball_redirect_damage  "1"      // If 1, reduces damage when a rocket's target is invalid (e.g., disconnects).
+tf_dodgeball_dp_speedup       "100"    // How many Hammer Units/sec are added to a delayed rockets speed.
+tf_dodgeball_redirect_damage  "1"      // If 1, reduces damage when a rockets target is invalid (e.g., disconnects).
 
 // Anti-Grief Taunt System
 tf_dodgeball_sp_tauntcheck        "1"      // If 1, enables the anti-grief taunt system.
