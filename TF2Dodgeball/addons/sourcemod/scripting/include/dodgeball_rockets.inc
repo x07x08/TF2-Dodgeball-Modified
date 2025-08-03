@@ -581,48 +581,95 @@ void EmitRocketSound(RocketSound iSound, int iClass, int iEntity, int iTarget, R
 
 void CheckStolenRocket(int iClient, int iIndex)
 {
-	int iTarget = EntRefToEntIndex(g_iRocketTarget[iIndex]);
+    if (g_hCvarStealTauntCheck.BoolValue)
+    {
+        int iOriginalTarget = EntRefToEntIndex(g_iRocketTarget[iIndex]);
+        int iDeflectorTeam = GetClientTeam(iClient);
 
-	if (!(iTarget != iClient &&
-	    !g_eStealInfo[iClient].stoleRocket &&
-	    (GetEntitiesDistance(iTarget, iClient) > g_hCvarStealDistance.FloatValue) &&
-	    (!(g_iRocketFlags[iIndex] & RocketFlag_StealTeamCheck) || (GetClientTeam(iTarget) == GetClientTeam(iClient))) &&
-	    !(g_iRocketState[iIndex] & RocketState_Delayed)))
-	{
-		return;
-	}
+        // Find any teammate of the deflector who is taunting near the original target
+        for (int iTaunter = 1; iTaunter <= MaxClients; iTaunter++)
+        {
+            // Check if it's a valid teammate (but not the deflector themselves)
+            if (!IsValidClient(iTaunter, true) || GetClientTeam(iTaunter) != iDeflectorTeam || iTaunter == iClient)
+            {
+                continue;
+            }
 
-	g_eStealInfo[iClient].stoleRocket = true;
+            // Check if this teammate is currently taunting
+            if (TF2_IsPlayerInCondition(iTaunter, TFCond_Taunting))
+            {
+                // Condition 1: Proximity Check. Is the taunter close enough to the original target?
+                float fTaunterPos[3], fOriginalTargetPos[3];
+                GetClientAbsOrigin(iTaunter, fTaunterPos);
+                GetClientAbsOrigin(iOriginalTarget, fOriginalTargetPos);
+                if (GetVectorDistance(fTaunterPos, fOriginalTargetPos) > g_hCvarStealTauntDistance.FloatValue)
+                {
+                    continue; // Taunter is too far away, this taunt doesn't count.
+                }
 
-	if (g_eStealInfo[iClient].rocketsStolen < g_hCvarStealPreventionNumber.IntValue)
-	{
-		g_eStealInfo[iClient].rocketsStolen++;
-		SlapPlayer(iClient, 0, true);
-		CPrintToChat(iClient, "%t", "DBSteal_Warning_Client", g_eStealInfo[iClient].rocketsStolen, g_hCvarStealPreventionNumber.IntValue);
+                // Condition 2: Cooldown Check. Has this player's taunt-block been used recently?
+                if (GetGameTime() < g_fLastTauntBlockTime[iTaunter] + g_hCvarStealTauntCooldown.FloatValue)
+                {
+                    continue; // Taunter is on cooldown, this taunt doesn't count.
+                }
 
-		if (g_hCvarStealMessage.BoolValue)
-		{
-			CSkipNextClient(iClient);
-			CPrintToChatAll("%t", "DBSteal_Announce_All", iClient, iTarget);
-		}
-		g_eStealInfo[iClient].stoleRocket = false;
-	}
-	else
-	{
-		ForcePlayerSuicide(iClient);
-		CPrintToChat(iClient, "%t", "DBSteal_Slay_Client");
+                // Condition 3: Max Duration Check. Has this taunt been active for too long?
+                if (GetGameTime() > g_fPlayerTauntStartTime[iTaunter] + g_hCvarStealTauntMaxTime.FloatValue)
+                {
+                    continue; // Taunt has expired, steal is allowed again.
+                }
 
-		if (g_hCvarStealMessage.BoolValue)
-		{
-			CSkipNextClient(iClient);
-			CPrintToChatAll("%t", "DBSteal_Announce_Slay_All", iClient);
-		}
-	}
+                // If all checks pass, the steal is blocked by this taunt.
+                g_fLastTauntBlockTime[iTaunter] = GetGameTime(); // Set the cooldown for this player.
+                return; // Exit function immediately, preventing the steal.
+            }
+        }
+    }
 
-	Internal_SetRocketState(iIndex, (g_iRocketState[iIndex] | RocketState_Stolen));
-	g_iLastStealer = iClient;
+    // --- Original Steal Logic ---
+    // This code only runs if the taunt checks above did not block the steal.
+    int iTarget = EntRefToEntIndex(g_iRocketTarget[iIndex]);
 
-	Forward_OnRocketSteal(iIndex, iClient, iTarget, g_eStealInfo[iClient].rocketsStolen);
+    if (!(iTarget != iClient &&
+        !g_eStealInfo[iClient].stoleRocket &&
+        (GetEntitiesDistance(iTarget, iClient) > g_hCvarStealDistance.FloatValue) &&
+        (!(g_iRocketFlags[iIndex] & RocketFlag_StealTeamCheck) || (GetClientTeam(iTarget) == GetClientTeam(iClient))) &&
+        !(g_iRocketState[iIndex] & RocketState_Delayed)))
+    {
+        return;
+    }
+
+    g_eStealInfo[iClient].stoleRocket = true;
+
+    if (g_eStealInfo[iClient].rocketsStolen < g_hCvarStealPreventionNumber.IntValue)
+    {
+        g_eStealInfo[iClient].rocketsStolen++;
+        SlapPlayer(iClient, 0, true);
+        CPrintToChat(iClient, "%t", "DBSteal_Warning_Client", g_eStealInfo[iClient].rocketsStolen, g_hCvarStealPreventionNumber.IntValue);
+
+        if (g_hCvarStealMessage.BoolValue)
+        {
+            CSkipNextClient(iClient);
+            CPrintToChatAll("%t", "DBSteal_Announce_All", iClient, iTarget);
+        }
+        g_eStealInfo[iClient].stoleRocket = false;
+    }
+    else
+    {
+        ForcePlayerSuicide(iClient);
+        CPrintToChat(iClient, "%t", "DBSteal_Slay_Client");
+
+        if (g_hCvarStealMessage.BoolValue)
+        {
+            CSkipNextClient(iClient);
+            CPrintToChatAll("%t", "DBSteal_Announce_Slay_All", iClient);
+        }
+    }
+
+    Internal_SetRocketState(iIndex, (g_iRocketState[iIndex] | RocketState_Stolen));
+    g_iLastStealer = iClient;
+
+    Forward_OnRocketSteal(iIndex, iClient, iTarget, g_eStealInfo[iClient].rocketsStolen);
 }
 
 void CheckRoundDelays(int iIndex)
@@ -647,4 +694,5 @@ void CheckRoundDelays(int iIndex)
 	{
 		g_fRocketSpeed[iIndex] += g_hCvarDelayPreventionSpeedup.FloatValue;
 	}
+
 }
