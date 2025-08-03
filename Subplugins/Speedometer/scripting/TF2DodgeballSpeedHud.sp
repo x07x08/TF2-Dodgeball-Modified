@@ -4,7 +4,8 @@
 #include <sourcemod>
 #include <clientprefs>
 #include <tf2>
-#include <tfdb> // Ensures we can use the TFDB natives and forwards
+#include <multicolors>
+#include <tfdb>
 
 #define PLUGIN_NAME        "[TFDB] Rocket Speedometer (Event-Driven)"
 #define PLUGIN_AUTHOR      "x07x08 (Rewrite by Silorak)"
@@ -92,7 +93,6 @@ public void TFDB_OnRocketCreated(int iIndex, int iEntity)
 
 public Action TFDB_OnRocketDeflectPre(int iIndex, int iEntity, int iOwner, int &iTarget)
 {
-    // FIX: This now correctly returns a value in all code paths.
     if (!g_bLoaded) return Plugin_Continue;
 
     g_iLastDeflectedRocket = iIndex;
@@ -257,7 +257,7 @@ public Action CmdToggleSpeedometer(int iClient, int iArgs)
 
     if (!g_bLoaded)
     {
-        ReplyToCommand(iClient, "Dodgeball is not currently active.");
+        CReplyToCommand(iClient, "Dodgeball is not currently active.");
         return Plugin_Handled;
     }
 
@@ -269,7 +269,7 @@ public Action CmdToggleSpeedometer(int iClient, int iArgs)
 
     UpdatePlayerHud(iClient);
 
-    ReplyToCommand(iClient, "Rocket HUD %s", g_bShowHud[iClient] ? "{green}Enabled" : "{red}Disabled");
+    CReplyToCommand(iClient, "{default}Rocket HUD %s", g_bShowHud[iClient] ? "{green}Enabled" : "{red}Disabled");
     return Plugin_Handled;
 }
 
