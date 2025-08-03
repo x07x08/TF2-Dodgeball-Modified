@@ -2,319 +2,278 @@
 #pragma newdecls required
 
 #include <sourcemod>
-#include <multicolors>
 #include <clientprefs>
 #include <tf2>
+#include <tfdb> // Ensures we can use the TFDB natives and forwards
 
-#include <tfdb>
+#define PLUGIN_NAME        "[TFDB] Rocket Speedometer (Event-Driven)"
+#define PLUGIN_AUTHOR      "x07x08 (Rewrite by Silorak)"
+#define PLUGIN_DESCRIPTION "Shows the speed of dodgeball rockets, updated via game events."
+#define PLUGIN_VERSION     "2.0.0"
+#define PLUGIN_URL         "https://github.com/Silorak/TF2-Dodgeball-Modified"
 
-#define PLUGIN_NAME        "[TFDB] Rocket Speedometer"
-#define PLUGIN_AUTHOR      "x07x08"
-#define PLUGIN_DESCRIPTION "Shows the speed of the last deflected rocket"
-#define PLUGIN_VERSION     "1.1.2"
-#define PLUGIN_URL         "https://github.com/x07x08/TF2-Dodgeball-Modified"
-
-int    g_iLastRocket = -1;
+// --- Global Variables ---
 bool   g_bShowHud[MAXPLAYERS + 1];
-char   g_strMultiHudText[225]; // This seems to be limit for ShowHudText / ShowSyncHudText
 Cookie g_hCookieShowHud;
-Handle g_hHudTimer;
 Handle g_hMainHudSync;
 Handle g_hMultiHudSync;
 bool   g_bLoaded;
+int    g_iLastDeflectedRocket = -1;
 
+// --- Plugin Info ---
 public Plugin myinfo =
 {
-	name        = PLUGIN_NAME,
-	author      = PLUGIN_AUTHOR,
-	description = PLUGIN_DESCRIPTION,
-	version     = PLUGIN_VERSION,
-	url         = PLUGIN_URL
+    name        = PLUGIN_NAME,
+    author      = PLUGIN_AUTHOR,
+    description = PLUGIN_DESCRIPTION,
+    version     = PLUGIN_VERSION,
+    url         = PLUGIN_URL
 };
+
+// --- Plugin Lifecycle Functions ---
 
 public void OnPluginStart()
 {
-	LoadTranslations("tfdb.phrases.txt");
-	
-	RegConsoleCmd("sm_rockethud", CmdToggleSpeedometer);
-	RegConsoleCmd("sm_rocketspeedo", CmdToggleSpeedometer);
-	
-	g_hCookieShowHud = new Cookie("tfdb_rockethud", "Show rocket speedometer", CookieAccess_Protected);
-	
-	if (!TFDB_IsDodgeballEnabled()) return;
-	
-	for (int iClient = 1; iClient <= MaxClients; iClient++)
-	{
-		if (!AreClientCookiesCached(iClient)) continue;
-		
-		OnClientCookiesCached(iClient);
-	}
-	
-	TFDB_OnRocketsConfigExecuted();
-	
-	if (TFDB_GetRoundStarted())
-	{
-		g_iLastRocket = FindLastRocket();
-		g_strMultiHudText = "\0";
-		
-		g_hHudTimer = CreateTimer(0.1, HudTimerCallback, _, TIMER_REPEAT);
-	}
+    LoadTranslations("common.phrases.txt");
+    LoadTranslations("tfdb.phrases.txt");
+
+    RegConsoleCmd("sm_rockethud", CmdToggleSpeedometer);
+    RegConsoleCmd("sm_rocketspeedo", CmdToggleSpeedometer);
+
+    g_hCookieShowHud = new Cookie("tfdb_rockethud", "Show rocket speedometer", CookieAccess_Protected);
+
+    for (int iClient = 1; iClient <= MaxClients; iClient++)
+    {
+        if (IsClientConnected(iClient) && AreClientCookiesCached(iClient))
+        {
+            OnClientCookiesCached(iClient);
+        }
+    }
 }
 
 public void OnMapEnd()
 {
-	if (!g_bLoaded) return;
-	
-	g_iLastRocket = -1;
-	g_strMultiHudText = "\0";
-	
-	if (g_hHudTimer != null) KillTimer(g_hHudTimer);
-	g_hHudTimer = null;
-	
-	delete g_hMainHudSync;
-	delete g_hMultiHudSync;
-	
-	UnhookEvent("teamplay_round_win", OnRoundEnd);
-	UnhookEvent("arena_round_start", OnSetupFinished);
-	
-	g_bLoaded = false;
+    if (!g_bLoaded) return;
+
+    delete g_hMainHudSync;
+    g_hMainHudSync = null;
+    delete g_hMultiHudSync;
+    g_hMultiHudSync = null;
+
+    g_bLoaded = false;
 }
 
-public void TFDB_OnRocketsConfigExecuted()
+// --- Dodgeball & Game Event Hooks ---
+
+public void TFDB_OnRocketsConfigExecuted(const char[] strConfigFile)
 {
-	if (g_bLoaded) return;
-	
-	g_hMainHudSync  = CreateHudSynchronizer();
-	g_hMultiHudSync = CreateHudSynchronizer();
-	
-	HookEvent("teamplay_round_win", OnRoundEnd);
-	HookEvent("arena_round_start", OnSetupFinished);
-	
-	g_bLoaded = true;
+    if (g_bLoaded) return;
+
+    g_hMainHudSync  = CreateHudSynchronizer();
+    g_hMultiHudSync = CreateHudSynchronizer();
+
+    HookEvent("teamplay_round_win", OnEvent);
+    HookEvent("arena_win_panel", OnEvent);
+    HookEvent("arena_round_start", OnEvent);
+
+    g_bLoaded = true;
 }
+
+public void TFDB_OnRocketCreated(int iIndex, int iEntity)
+{
+    if (!g_bLoaded) return;
+
+    if (g_iLastDeflectedRocket == -1)
+    {
+        g_iLastDeflectedRocket = iIndex;
+    }
+    UpdateAllHuds();
+}
+
+public Action TFDB_OnRocketDeflectPre(int iIndex, int iEntity, int iOwner, int &iTarget)
+{
+    // FIX: This now correctly returns a value in all code paths.
+    if (!g_bLoaded) return Plugin_Continue;
+
+    g_iLastDeflectedRocket = iIndex;
+    UpdateAllHuds();
+
+    return Plugin_Continue;
+}
+
+public void OnEvent(Event event, const char[] name, bool dontBroadcast)
+{
+    if (!g_bLoaded) return;
+
+    if (StrEqual(name, "teamplay_round_win") || StrEqual(name, "arena_win_panel"))
+    {
+        g_iLastDeflectedRocket = -1;
+        for (int iClient = 1; iClient <= MaxClients; iClient++)
+        {
+            if (IsValidClient(iClient))
+            {
+                ClearSyncHud(iClient, g_hMainHudSync);
+                ClearSyncHud(iClient, g_hMultiHudSync);
+            }
+        }
+    }
+    else if (StrEqual(name, "arena_round_start"))
+    {
+        g_iLastDeflectedRocket = -1;
+        UpdateAllHuds();
+    }
+}
+
+// --- Client Handling ---
 
 public void OnClientDisconnect(int iClient)
 {
-	g_bShowHud[iClient] = false;
+    g_bShowHud[iClient] = false;
 }
 
-public void OnClientConnected(int iClient)
+public void OnClientPutInServer(int iClient)
 {
-	g_bShowHud[iClient] = true;
+    g_bShowHud[iClient] = true;
+    if (AreClientCookiesCached(iClient))
+    {
+        OnClientCookiesCached(iClient);
+    }
 }
 
 public void OnClientCookiesCached(int iClient)
 {
-	char strValue[4]; g_hCookieShowHud.Get(iClient, strValue, sizeof(strValue));
-	
-	// Taken from FF2
-	if (!strValue[0])
-	{
-		g_hCookieShowHud.Set(iClient, "1");
-		strValue = "1";
-	}
-	
-	g_bShowHud[iClient] = !!StringToInt(strValue);
+    char strValue[4];
+    g_hCookieShowHud.Get(iClient, strValue, sizeof(strValue));
+    if (!strValue[0])
+    {
+        g_hCookieShowHud.Set(iClient, "1");
+        strValue = "1";
+    }
+    g_bShowHud[iClient] = !!StringToInt(strValue);
+    if(g_bLoaded)
+    {
+        UpdatePlayerHud(iClient);
+    }
 }
 
-public void OnRoundEnd(Event hEvent, char[] strEventName, bool bDontBroadcast)
+// --- HUD Logic ---
+
+void UpdateAllHuds()
 {
-	g_iLastRocket = -1;
-	g_strMultiHudText = "\0";
-	
-	if (g_hHudTimer != null)
-	{
-		KillTimer(g_hHudTimer);
-		g_hHudTimer = null;
-	}
-	
-	for (int iClient = 1; iClient <= MaxClients; iClient++)
-	{
-		if (!IsClientInGame(iClient)) continue;
-		
-		ClearSyncHud(iClient, g_hMainHudSync);
-		ClearSyncHud(iClient, g_hMultiHudSync);
-	}
+    for (int iClient = 1; iClient <= MaxClients; iClient++)
+    {
+        if (IsValidClient(iClient))
+        {
+            UpdatePlayerHud(iClient);
+        }
+    }
 }
 
-public void OnSetupFinished(Event hEvent, char[] strEventName, bool bDontBroadcast)
+void UpdatePlayerHud(int iClient)
 {
-	if (!BothTeamsPlaying()) return;
-	
-	g_iLastRocket = -1;
-	g_strMultiHudText = "\0";
-	
-	g_hHudTimer = CreateTimer(0.1, HudTimerCallback, _, TIMER_REPEAT);
-}
+    if (!g_bShowHud[iClient])
+    {
+        ClearSyncHud(iClient, g_hMainHudSync);
+        ClearSyncHud(iClient, g_hMultiHudSync);
+        return;
+    }
 
-public Action CmdToggleSpeedometer(int iClient, int iArgs)
-{
-	if (iClient == 0)
-	{
-		ReplyToCommand(iClient, "Command is in-game only.");
-		
-		return Plugin_Handled;
-	}
-	
-	if (!TFDB_IsDodgeballEnabled())
-	{
-		CReplyToCommand(iClient, "%t", "Command_Disabled");
-		
-		return Plugin_Handled;
-	}
-	
-	g_bShowHud[iClient] = !g_bShowHud[iClient];
-	
-	char strValue[4]; IntToString(g_bShowHud[iClient], strValue, sizeof(strValue));
-	g_hCookieShowHud.Set(iClient, strValue);
-	
-	if (!g_bShowHud[iClient])
-	{
-		ClearSyncHud(iClient, g_hMainHudSync);
-		ClearSyncHud(iClient, g_hMultiHudSync);
-	}
-	
-	CReplyToCommand(iClient, "%t", g_bShowHud[iClient] ? "Hud_Enabled" : "Hud_Disabled");
-	
-	return Plugin_Handled;
-}
+    char strMultiHudText[1024] = "";
 
-public Action TFDB_OnRocketDeflectPre(int iIndex)
-{
-	g_iLastRocket = iIndex;
-	
-	ShowMainRocketHudAll(iIndex);
-	
-	return Plugin_Continue;
-}
+    for (int iIndex = 0; iIndex < MAX_ROCKETS; iIndex++)
+    {
+        if (!TFDB_IsValidRocket(iIndex))
+        {
+            continue;
+        }
 
-public void TFDB_OnRocketCreated(int iIndex)
-{
-	g_iLastRocket = iIndex;
-	
-	ShowMainRocketHudAll(iIndex);
-}
+        if (iIndex == g_iLastDeflectedRocket)
+        {
+            ShowMainRocketHud(iClient, iIndex);
+        }
+        else
+        {
+            FormatMultiRocketHud(iClient, iIndex, strMultiHudText, sizeof(strMultiHudText));
+        }
+    }
 
-// https://forums.alliedmods.net/showthread.php?t=208847
+    if (strMultiHudText[0])
+    {
+        SetHudTextParams(0.05, 0.05, 0.1, 255, 255, 255, 255, 0, 0.0, 0.12, 0.12);
+        ShowSyncHudText(iClient, g_hMultiHudSync, strMultiHudText);
+    }
+    else
+    {
+        ClearSyncHud(iClient, g_hMultiHudSync);
+    }
 
-public Action HudTimerCallback(Handle hTimer)
-{
-	for (int iClient = 1; iClient <= MaxClients; iClient++)
-	{
-		if (!IsClientInGame(iClient) || !g_bShowHud[iClient]) continue;
-		
-		g_strMultiHudText = "\0";
-		
-		for (int iIndex = 0; iIndex < MAX_ROCKETS; iIndex++)
-		{
-			if (!TFDB_IsValidRocket(iIndex)) continue;
-			
-			if (iIndex == g_iLastRocket)
-			{
-				ShowMainRocketHud(iClient, iIndex);
-			}
-			else
-			{
-				FormatMultiRocketHud(iClient, iIndex, g_strMultiHudText, sizeof(g_strMultiHudText));
-			}
-		}
-		
-		if (g_strMultiHudText[0])
-		{
-			SetHudTextParams(0.05, 0.05, 0.1, 255, 255, 255, 255, 0, 0.0, 0.12, 0.12);
-			
-			ShowSyncHudText(iClient, g_hMultiHudSync, g_strMultiHudText);
-		}
-	}
-	
-	return Plugin_Continue;
+    if (!TFDB_IsValidRocket(g_iLastDeflectedRocket))
+    {
+        g_iLastDeflectedRocket = -1;
+        ClearSyncHud(iClient, g_hMainHudSync);
+    }
 }
 
 void ShowMainRocketHud(int iClient, int iIndex)
 {
-	SetHudTextParams(-1.0, 0.9, 0.1, 255, 255, 255, 255, 0, 0.0, 0.12, 0.12);
-	
-	ShowSyncHudText(iClient, g_hMainHudSync, "%t", "Hud_Speedometer", TFDB_GetRocketMphSpeed(iIndex),
-	                                                                  TFDB_GetRocketSpeed(iIndex),
-	                                                                  TFDB_GetRocketDeflections(iIndex),
-	                                                                  iIndex,
-	                                                                  GetRocketLongName(iIndex));
-}
+    SetHudTextParams(-1.0, 0.9, 0.1, 255, 255, 255, 255, 0, 0.0, 0.12, 0.12);
 
-void ShowMainRocketHudAll(int iIndex)
-{
-	for (int iClient = 1; iClient <= MaxClients; iClient++)
-	{
-		if (!IsClientInGame(iClient) || !g_bShowHud[iClient]) continue;
-		
-		ShowMainRocketHud(iClient, iIndex);
-	}
+    char strRocketName[32];
+    TFDB_GetRocketClassLongName(TFDB_GetRocketClass(iIndex), strRocketName, sizeof(strRocketName));
+
+    ShowSyncHudText(iClient, g_hMainHudSync, "%t", "Hud_Speedometer",
+        RoundToNearest(TFDB_GetRocketMphSpeed(iIndex)),
+        RoundToNearest(TFDB_GetRocketSpeed(iIndex)),
+        TFDB_GetRocketDeflections(iIndex),
+        iIndex,
+        strRocketName
+    );
 }
 
 void FormatMultiRocketHud(int iClient, int iIndex, char[] strBuffer, int iMaxLen)
 {
-	static int iLength;
-	
-	if ((iLength + strlen(strBuffer)) >= iMaxLen) return;
-	
-	iLength = strlen(strBuffer);
-	
-	Format(strBuffer, iMaxLen, "%s%T\n", strBuffer, "Hud_SpeedometerEx", iClient, TFDB_GetRocketMphSpeed(iIndex),
-	                                                                              TFDB_GetRocketSpeed(iIndex),
-	                                                                              TFDB_GetRocketDeflections(iIndex),
-	                                                                              iIndex,
-	                                                                              GetRocketLongName(iIndex));
-	
-	iLength = strlen(strBuffer) - iLength;
+    char strTemp[256];
+    char strRocketName[32];
+    TFDB_GetRocketClassLongName(TFDB_GetRocketClass(iIndex), strRocketName, sizeof(strRocketName));
+
+    Format(strTemp, sizeof(strTemp), "%T\n", "Hud_SpeedometerEx", iClient,
+        RoundToNearest(TFDB_GetRocketMphSpeed(iIndex)),
+        RoundToNearest(TFDB_GetRocketSpeed(iIndex)),
+        TFDB_GetRocketDeflections(iIndex),
+        iIndex,
+        strRocketName
+    );
+
+    if (strlen(strBuffer) + strlen(strTemp) < iMaxLen)
+    {
+        StrCat(strBuffer, iMaxLen, strTemp);
+    }
 }
 
-stock bool BothTeamsPlaying()
+
+public Action CmdToggleSpeedometer(int iClient, int iArgs)
 {
-	bool bRedFound, bBluFound;
-	
-	for (int iClient = 1; iClient <= MaxClients; iClient++)
-	{
-		if (!IsClientInGame(iClient) || !IsPlayerAlive(iClient)) continue;
-		
-		int iTeam = GetClientTeam(iClient);
-		
-		if (iTeam == view_as<int>(TFTeam_Red)) bRedFound = true;
-		if (iTeam == view_as<int>(TFTeam_Blue)) bBluFound = true;
-	}
-	
-	return bRedFound && bBluFound;
+    if (iClient == 0) return Plugin_Handled;
+
+    if (!g_bLoaded)
+    {
+        ReplyToCommand(iClient, "Dodgeball is not currently active.");
+        return Plugin_Handled;
+    }
+
+    g_bShowHud[iClient] = !g_bShowHud[iClient];
+
+    char strValue[2];
+    IntToString(g_bShowHud[iClient] ? 1 : 0, strValue, sizeof(strValue));
+    g_hCookieShowHud.Set(iClient, strValue);
+
+    UpdatePlayerHud(iClient);
+
+    ReplyToCommand(iClient, "Rocket HUD %s", g_bShowHud[iClient] ? "{green}Enabled" : "{red}Disabled");
+    return Plugin_Handled;
 }
 
-char[] GetRocketLongName(int iIndex)
+stock bool IsValidClient(int iClient)
 {
-	char strBuffer[32]; TFDB_GetRocketClassLongName(TFDB_GetRocketClass(iIndex), strBuffer, sizeof(strBuffer));
-	
-	return strBuffer;
-}
-
-int FindLastRocket()
-{
-	float fDeflectionTime;
-	float fSpawnTime;
-	int   iDeflectionIndex;
-	int   iSpawnIndex;
-	
-	for (int iIndex = 0; iIndex < MAX_ROCKETS; iIndex++)
-	{
-		if (!TFDB_IsValidRocket(iIndex)) continue;
-		
-		if (TFDB_GetRocketLastDeflectionTime(iIndex) > fDeflectionTime)
-		{
-			iDeflectionIndex = iIndex;
-			fDeflectionTime  = TFDB_GetRocketLastDeflectionTime(iIndex);
-		}
-		
-		if (TFDB_GetLastSpawnTime(iIndex) > fSpawnTime)
-		{
-			iSpawnIndex = iIndex;
-			fSpawnTime  = TFDB_GetLastSpawnTime(iIndex);
-		}
-	}
-	
-	return fDeflectionTime < fSpawnTime ? iSpawnIndex : iDeflectionIndex;
+    return (iClient > 0 && iClient <= MaxClients && IsClientInGame(iClient));
 }
