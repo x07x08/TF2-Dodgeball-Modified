@@ -6,8 +6,8 @@ This is a small HUD that shows the speed (and deflections) of a rocket. Visibili
 
   | Commands           | Description                               |
   |--------------------|-------------------------------------------|
-  | `sm_rockethud`     | Toggles the rocket speedometer            |
-  | `sm_rocketspeedo`  | Alternative to `sm_rockethud`             |
+  | `sm_speedhud`     | Toggles the rocket speedometer            |
+  | `sm_shud`  | Alternative to `sm_rockethud`             |
 
 # Notes
 
