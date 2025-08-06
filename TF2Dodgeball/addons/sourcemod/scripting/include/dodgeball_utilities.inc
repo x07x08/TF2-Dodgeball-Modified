@@ -167,8 +167,8 @@ stock int SelectTarget(int iTeam, int iRocket = -1)
 {
 	int iTarget = -1;
 	float fTargetWeight = 0.0;
-	static float fRocketPosition[3];
-	static float fRocketDirection[3];
+	float fRocketPosition[3];
+	float fRocketDirection[3];
 	float fWeight;
 	bool bUseRocket;
 	int iOwner = -1;
@@ -196,8 +196,8 @@ stock int SelectTarget(int iTeam, int iRocket = -1)
 		
 		if (bUseRocket)
 		{
-			static float fClientPosition[3]; GetClientEyePosition(iClient, fClientPosition);
-			static float fDirectionToClient[3]; MakeVectorFromPoints(fRocketPosition, fClientPosition, fDirectionToClient);
+			float fClientPosition[3]; GetClientEyePosition(iClient, fClientPosition);
+			float fDirectionToClient[3]; MakeVectorFromPoints(fRocketPosition, fClientPosition, fDirectionToClient);
 			
 			fNewWeight += GetVectorDotProduct(fRocketDirection, fDirectionToClient) * fWeight;
 		}

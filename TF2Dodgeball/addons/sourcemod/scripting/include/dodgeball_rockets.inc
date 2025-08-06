@@ -32,7 +32,9 @@ void CreateRocket(int iSpawnerEntity, int iSpawnerClass, int iTeam, int iClass =
 	int iEntity = CreateEntityByName(TestFlags(iFlags, RocketFlag_IsAnimated) ? "tf_projectile_sentryrocket" : "tf_projectile_rocket");
 	if (iEntity == -1) return;
 
-	static float fPosition[3], fAngles[3], fDirection[3];
+    // BUG FIX: Removed 'static' keyword. Each rocket needs its own unique variables on the stack
+    // to prevent data from one rocket creation call interfering with the next.
+	float fPosition[3], fAngles[3], fDirection[3];
 	GetEntPropVector(iSpawnerEntity, Prop_Send, "m_vecOrigin", fPosition);
 	GetEntPropVector(iSpawnerEntity, Prop_Send, "m_angRotation", fAngles);
 	GetAngleVectors(fAngles, fDirection, NULL_VECTOR, NULL_VECTOR);
@@ -172,7 +174,7 @@ void HomingRocketThink(int iIndex)
 		Internal_SetRocketState(iIndex, (g_iRocketState[iIndex] | (RocketState_CanDrag | RocketState_Dragging)));
 		if (iClient >= 1)
 		{
-			static float fViewAngles[3], fDirection[3];
+			float fViewAngles[3], fDirection[3];
 			GetClientEyeAngles(iClient, fViewAngles);
 			GetAngleVectors(fViewAngles, fDirection, NULL_VECTOR, NULL_VECTOR);
 			CopyVectors(fDirection, g_fRocketDirection[iIndex]);
@@ -189,7 +191,7 @@ void HomingRocketThink(int iIndex)
 				int iClient = GetEntPropEnt(iEntity, Prop_Send, "m_hOwnerEntity");
 				if (iClient >= 1)
 				{
-					static float fViewAngles[3], fDirection[3];
+					float fViewAngles[3], fDirection[3];
 					GetClientEyeAngles(iClient, fViewAngles);
 					GetAngleVectors(fViewAngles, fDirection, NULL_VECTOR, NULL_VECTOR);
 					CopyVectors(fDirection, g_fRocketDirection[iIndex]);
@@ -276,19 +278,19 @@ void HomingRocketThink(int iIndex)
 			{
 				if ((GetGameTime() - g_fRocketLastDeflectionTime[iIndex]) >= g_fRocketClassControlDelay[iClass])
 				{
-					float fTurnRate = CalculateRocketTurnRate(iClass, fModifier) / g_fTickModifier;
-					static float fDirectionToTarget[3]; CalculateDirectionToClient(iEntity, iTarget, fDirectionToTarget);
+					float fTurnrate = CalculateRocketTurnRate(iClass, fModifier) / g_fTickModifier;
+					float fDirectionToTarget[3]; CalculateDirectionToClient(iEntity, iTarget, fDirectionToTarget);
 
 					if (g_iRocketFlags[iIndex] & RocketFlag_Elevating)
 					{
 						fDirectionToTarget[2] = g_fRocketDirection[iIndex][2];
 					}
 
-					if ((g_iRocketFlags[iIndex] & RocketFlag_IsTRLimited) && (fTurnRate >= g_fRocketClassTurnRateLimit[iClass] / g_fTickModifier))
+					if ((g_iRocketFlags[iIndex] & RocketFlag_IsTRLimited) && (fTurnrate >= g_fRocketClassTurnRateLimit[iClass] / g_fTickModifier))
 					{
-						fTurnRate = g_fRocketClassTurnRateLimit[iClass] / g_fTickModifier;
+						fTurnrate = g_fRocketClassTurnRateLimit[iClass] / g_fTickModifier;
 					}
-					LerpVectors(g_fRocketDirection[iIndex], fDirectionToTarget, g_fRocketDirection[iIndex], fTurnRate);
+					LerpVectors(g_fRocketDirection[iIndex], fDirectionToTarget, g_fRocketDirection[iIndex], fTurnrate);
 				}
 			}
 		}
@@ -300,7 +302,11 @@ void HomingRocketThink(int iIndex)
 	}
 }
 
-void RocketOtherThink(int iIndex)
+/**
+ * Handles logic that is shared between all rocket behaviours, like sounds and delay checks.
+ * This is called from the 20Hz timer in dodgeball_core.inc
+ */
+void SharedRocketThink(int iIndex)
 {
 	int iEntity          = EntRefToEntIndex(g_iRocketEntity[iIndex]);
 	int iClass           = g_iRocketClass[iIndex];
@@ -377,7 +383,7 @@ void RocketLegacyThink(int iIndex)
 
 		if (iClient >= 1)
 		{
-			static float fViewAngles[3], fDirection[3];
+			float fViewAngles[3], fDirection[3];
 			GetClientEyeAngles(iClient, fViewAngles);
 			GetAngleVectors(fViewAngles, fDirection, NULL_VECTOR, NULL_VECTOR);
 			CopyVectors(fDirection, g_fRocketDirection[iIndex]);
@@ -438,8 +444,8 @@ void RocketLegacyThink(int iIndex)
 	{
 		if ((GetGameTime() - g_fRocketLastDeflectionTime[iIndex]) >= g_fRocketClassControlDelay[iClass])
 		{
-			float fTurnRate = CalculateRocketTurnRate(iClass, fModifier);
-			static float fDirectionToTarget[3];
+			float fTurnrate = CalculateRocketTurnRate(iClass, fModifier);
+			float fDirectionToTarget[3];
 			CalculateDirectionToClient(iEntity, iTarget, fDirectionToTarget);
 
 			if (g_iRocketFlags[iIndex] & RocketFlag_Elevating)
@@ -455,22 +461,11 @@ void RocketLegacyThink(int iIndex)
 				}
 			}
 
-			if ((g_iRocketFlags[iIndex] & RocketFlag_IsTRLimited) && (fTurnRate >= g_fRocketClassTurnRateLimit[iClass]))
+			if ((g_iRocketFlags[iIndex] & RocketFlag_IsTRLimited) && (fTurnrate >= g_fRocketClassTurnRateLimit[iClass]))
 			{
-				fTurnRate = g_fRocketClassTurnRateLimit[iClass];
+				fTurnrate = g_fRocketClassTurnRateLimit[iClass];
 			}
-			LerpVectors(g_fRocketDirection[iIndex], fDirectionToTarget, g_fRocketDirection[iIndex], fTurnRate);
-		}
-
-		if ((GetGameTime() - g_fRocketLastBeepTime[iIndex]) >= g_fRocketClassBeepInterval[iClass])
-		{
-			EmitRocketSound(RocketSound_Beep, iClass, iEntity, iTarget, iFlags);
-			g_fRocketLastBeepTime[iIndex] = GetGameTime();
-		}
-
-		if (g_hCvarDelayPrevention.BoolValue)
-		{
-			CheckRoundDelays(iIndex);
+			LerpVectors(g_fRocketDirection[iIndex], fDirectionToTarget, g_fRocketDirection[iIndex], fTurnrate);
 		}
 	}
 	ApplyRocketParameters(iIndex);
@@ -500,7 +495,7 @@ float CalculateRocketTurnRate(int iClass, float fModifier)
 
 void CalculateDirectionToClient(int iEntity, int iClient, float fOut[3])
 {
-	static float fRocketPosition[3]; GetEntPropVector(iEntity, Prop_Send, "m_vecOrigin", fRocketPosition);
+	float fRocketPosition[3]; GetEntPropVector(iEntity, Prop_Send, "m_vecOrigin", fRocketPosition);
 	GetClientEyePosition(iClient, fOut);
 	MakeVectorFromPoints(fRocketPosition, fOut, fOut);
 	NormalizeVector(fOut, fOut);
@@ -509,8 +504,8 @@ void CalculateDirectionToClient(int iEntity, int iClient, float fOut[3])
 void ApplyRocketParameters(int iIndex)
 {
 	int iEntity = EntRefToEntIndex(g_iRocketEntity[iIndex]);
-	static float fAngles[3]; GetVectorAngles(g_fRocketDirection[iIndex], fAngles);
-	static float fVelocity[3]; CopyVectors(g_fRocketDirection[iIndex], fVelocity);
+	float fAngles[3]; GetVectorAngles(g_fRocketDirection[iIndex], fAngles);
+	float fVelocity[3]; CopyVectors(g_fRocketDirection[iIndex], fVelocity);
 
 	ScaleVector(fVelocity, g_fRocketSpeed[iIndex]);
 	SetEntPropVector(iEntity, Prop_Data, "m_vecAbsVelocity", fVelocity);
@@ -581,53 +576,6 @@ void EmitRocketSound(RocketSound iSound, int iClass, int iEntity, int iTarget, R
 
 void CheckStolenRocket(int iClient, int iIndex)
 {
-    if (g_hCvarStealTauntCheck.BoolValue)
-    {
-        int iOriginalTarget = EntRefToEntIndex(g_iRocketTarget[iIndex]);
-        int iDeflectorTeam = GetClientTeam(iClient);
-
-        // Find any teammate of the deflector who is taunting near the original target
-        for (int iTaunter = 1; iTaunter <= MaxClients; iTaunter++)
-        {
-            // Check if it's a valid teammate (but not the deflector themselves)
-            if (!IsValidClient(iTaunter, true) || GetClientTeam(iTaunter) != iDeflectorTeam || iTaunter == iClient)
-            {
-                continue;
-            }
-
-            // Check if this teammate is currently taunting
-            if (TF2_IsPlayerInCondition(iTaunter, TFCond_Taunting))
-            {
-                // Condition 1: Proximity Check. Is the taunter close enough to the original target?
-                float fTaunterPos[3], fOriginalTargetPos[3];
-                GetClientAbsOrigin(iTaunter, fTaunterPos);
-                GetClientAbsOrigin(iOriginalTarget, fOriginalTargetPos);
-                if (GetVectorDistance(fTaunterPos, fOriginalTargetPos) > g_hCvarStealTauntDistance.FloatValue)
-                {
-                    continue; // Taunter is too far away, this taunt doesn't count.
-                }
-
-                // Condition 2: Cooldown Check. Has this player's taunt-block been used recently?
-                if (GetGameTime() < g_fLastTauntBlockTime[iTaunter] + g_hCvarStealTauntCooldown.FloatValue)
-                {
-                    continue; // Taunter is on cooldown, this taunt doesn't count.
-                }
-
-                // Condition 3: Max Duration Check. Has this taunt been active for too long?
-                if (GetGameTime() > g_fPlayerTauntStartTime[iTaunter] + g_hCvarStealTauntMaxTime.FloatValue)
-                {
-                    continue; // Taunt has expired, steal is allowed again.
-                }
-
-                // If all checks pass, the steal is blocked by this taunt.
-                g_fLastTauntBlockTime[iTaunter] = GetGameTime(); // Set the cooldown for this player.
-                return; // Exit function immediately, preventing the steal.
-            }
-        }
-    }
-
-    // --- Original Steal Logic ---
-    // This code only runs if the taunt checks above did not block the steal.
     int iTarget = EntRefToEntIndex(g_iRocketTarget[iIndex]);
 
     if (!(iTarget != iClient &&
@@ -658,7 +606,6 @@ void CheckStolenRocket(int iClient, int iIndex)
     {
         ForcePlayerSuicide(iClient);
         CPrintToChat(iClient, "%t", "DBSteal_Slay_Client");
-
         if (g_hCvarStealMessage.BoolValue)
         {
             CSkipNextClient(iClient);
@@ -668,7 +615,6 @@ void CheckStolenRocket(int iClient, int iIndex)
 
     Internal_SetRocketState(iIndex, (g_iRocketState[iIndex] | RocketState_Stolen));
     g_iLastStealer = iClient;
-
     Forward_OnRocketSteal(iIndex, iClient, iTarget, g_eStealInfo[iClient].rocketsStolen);
 }
 
@@ -694,5 +640,4 @@ void CheckRoundDelays(int iIndex)
 	{
 		g_fRocketSpeed[iIndex] += g_hCvarDelayPreventionSpeedup.FloatValue;
 	}
-
 }

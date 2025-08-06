@@ -51,17 +51,14 @@ void PopulateSpawnPoints()
 {
 	g_iSpawnPointsRedCount = 0;
 	g_iSpawnPointsBluCount = 0;
-
 	int iEntity = -1;
 	while ((iEntity = FindEntityByClassname(iEntity, "info_target")) != -1)
 	{
 		char strName[32]; GetEntPropString(iEntity, Prop_Data, "m_iName", strName, sizeof(strName));
-		
 		if ((StrContains(strName, "rocket_spawn_red") != -1) || (StrContains(strName, "tf_dodgeball_red") != -1))
 		{
 			int iIndex = FindSpawnerByName(strName);
 			if (iIndex == -1) iIndex = g_iDefaultRedSpawner;
-
 			g_iSpawnPointsRedClass [g_iSpawnPointsRedCount] = iIndex;
 			g_iSpawnPointsRedEntity[g_iSpawnPointsRedCount] = iEntity;
 			g_iSpawnPointsRedCount++;
@@ -77,6 +74,14 @@ void PopulateSpawnPoints()
 			g_iSpawnPointsBluCount++;
 		}
 	}
+
+	// New code block starts here
+	if (g_iSpawnPointsRedCount == 0 && g_iSpawnPointsBluCount == 0)
+	{
+		SetFailState("No 'info_target' entities found on this map.");
+		return;
+	}
+	// New code block ends here
 
 	if (g_iSpawnPointsRedCount == 0) SetFailState("No RED spawn points found on this map.");
 	if (g_iSpawnPointsBluCount == 0) SetFailState("No BLU spawn points found on this map.");
@@ -203,7 +208,7 @@ void ExecuteCommands(DataPack hDataPack, int iClass, int iRocket, int iOwner, in
 
 	while (iNumCommands-- > 0)
 	{
-		static char strCmd[256], strBuffer[32];
+		char strCmd[256], strBuffer[32];
 
 		hDataPack.ReadString(strCmd, sizeof(strCmd));
 		ReplaceString(strCmd, sizeof(strCmd), "@name", g_strRocketClassLongName[iClass]);

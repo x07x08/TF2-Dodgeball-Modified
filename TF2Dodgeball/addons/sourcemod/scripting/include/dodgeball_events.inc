@@ -18,8 +18,6 @@ public void OnRoundStart(Event hEvent, char[] strEventName, bool bDontBroadcast)
 	{
 		g_eStealInfo[iClient].stoleRocket = false;
 		g_eStealInfo[iClient].rocketsStolen = 0;
-		g_fPlayerTauntStartTime[iClient] = 0.0;
-		g_fLastTauntBlockTime[iClient] = 0.0;
 	}
 }
 
@@ -94,8 +92,6 @@ public void OnPlayerDeath(Event hEvent, char[] strEventName, bool bDontBroadcast
 
 	g_eStealInfo[iVictim].stoleRocket = false;
 	g_eStealInfo[iVictim].rocketsStolen = 0;
-	g_fPlayerTauntStartTime[iVictim] = 0.0;
-	g_fLastTauntBlockTime[iVictim] = 0.0;
 
 	g_iLastDeadClient = iVictim;
 	g_iLastDeadTeam = GetClientTeam(iVictim);
@@ -121,15 +117,6 @@ public void OnPlayerDeath(Event hEvent, char[] strEventName, bool bDontBroadcast
 	{
 		ExecuteCommands(g_hRocketClassCmdsOnKill[iClass], iClass, iInflictor, iAttacker, iTarget, g_iLastDeadClient, fSpeed, iDeflections, fMphSpeed);
 	}
-}
-
-public void OnPlayerTaunt(Event hEvent, const char[] strEventName, bool bDontBroadcast)
-{
-    int iClient = GetClientOfUserId(hEvent.GetInt("userid"));
-    if (IsValidClient(iClient))
-    {
-        g_fPlayerTauntStartTime[iClient] = GetGameTime();
-    }
 }
 
 public void OnPlayerInventory(Event hEvent, char[] strEventName, bool bDontBroadcast)
@@ -232,6 +219,11 @@ public void OnObjectDeflected(Event hEvent, char[] strEventName, bool bDontBroad
 	}
 }
 
+/**
+ * This hook runs every server frame.
+ * It's responsible for the smooth "homing" behaviour.
+ * "legacy homing" is handled by the 20Hz timer OnDodgeBallGameFrame.
+ */
 public void OnGameFrame()
 {
 	if (!g_bEnabled || !g_bRoundStarted) return;
@@ -239,18 +231,9 @@ public void OnGameFrame()
 	int iIndex = -1;
 	while ((iIndex = FindNextValidRocket(iIndex)) != -1)
 	{
-		switch (g_iRocketClassBehaviour[g_iRocketClass[iIndex]])
+		if (g_iRocketClassBehaviour[g_iRocketClass[iIndex]] == Behaviour_Homing)
 		{
-			case Behaviour_Homing:
-			{
-				HomingRocketThink(iIndex);
-				break;
-			}
-			case Behaviour_LegacyHoming:
-			{
-				RocketLegacyThink(iIndex);
-				break;
-			}
+			HomingRocketThink(iIndex);
 		}
 	}
 }
@@ -259,8 +242,6 @@ public void OnClientDisconnect(int iClient)
 {
 	g_eStealInfo[iClient].stoleRocket = false;
 	g_eStealInfo[iClient].rocketsStolen = 0;
-	g_fPlayerTauntStartTime[iClient] = 0.0;
-	g_fLastTauntBlockTime[iClient] = 0.0;
 
 	if (iClient == g_iLastDeadClient)
 	{
@@ -278,7 +259,6 @@ public Action OnStartTouch(int iEntity, int iOther)
 	int iIndex = FindRocketByEntity(iEntity);
 
 	if (iIndex == -1) return Plugin_Continue;
-	
 	if (iOther > 0 && iOther <= MaxClients)
 	{
 		if (g_iRocketDeflections[iIndex] == 0)
@@ -318,13 +298,13 @@ public Action OnTouch(int iEntity, int iOther)
 
 	int iClass = g_iRocketClass[iIndex];
 
-	static float vOrigin[3];
+	float vOrigin[3];
 	GetEntPropVector(iEntity, Prop_Data, "m_vecOrigin", vOrigin);
 
-	static float vAngles[3];
+	float vAngles[3];
 	GetEntPropVector(iEntity, Prop_Data, "m_angRotation", vAngles);
 	
-	static float vVelocity[3];
+	float vVelocity[3];
 	GetEntPropVector(iEntity, Prop_Data, "m_vecAbsVelocity", vVelocity);
 
 	Handle hTrace = TR_TraceRayFilterEx(vOrigin, vAngles, MASK_SHOT, RayType_Infinite, TEF_ExcludeEntity, iEntity);
@@ -335,7 +315,7 @@ public Action OnTouch(int iEntity, int iOther)
 		return Plugin_Continue;
 	}
 
-	static float vNormal[3];
+	float vNormal[3];
 	TR_GetPlaneNormal(hTrace, vNormal);
 	delete hTrace;
 	
@@ -343,15 +323,42 @@ public Action OnTouch(int iEntity, int iOther)
 	ScaleVector(vNormal, dotProduct);
 	ScaleVector(vNormal, 2.0);
 
-	static float vBounceVec[3];
+	float vBounceVec[3];
 	SubtractVectors(vVelocity, vNormal, vBounceVec);
-	ScaleVector(vBounceVec, g_fRocketClassBounceScale[iClass]);
+	// --- New Bounce Mechanic ---
+    // Check if the owner is looking down to apply extra bounce force.
+    int iOwner = GetEntPropEnt(iEntity, Prop_Send, "m_hOwnerEntity");
+    if (IsValidClient(iOwner, true))
+    {
+        float fOwnerAngles[3];
+        GetClientEyeAngles(iOwner, fOwnerAngles);
 
-	static float vNewAngles[3];
+        // Check if player's pitch is looking down enough
+        if (fOwnerAngles[0] >= g_hCvarBounceForceAngle.FloatValue)
+        {
+            // Apply the base bounce scale and the extra force multiplier
+            ScaleVector(vBounceVec, g_fRocketClassBounceScale[iClass] * g_hCvarBounceForceScale.FloatValue);
+        }
+        else
+        {
+             // Apply only the base bounce scale
+            ScaleVector(vBounceVec, g_fRocketClassBounceScale[iClass]);
+        }
+    }
+    else
+    {
+        // Apply only the base bounce scale if there's no valid owner
+        ScaleVector(vBounceVec, g_fRocketClassBounceScale[iClass]);
+    }
+    // --- End New Bounce Mechanic ---
+
+
+	float vNewAngles[3];
 	GetVectorAngles(vBounceVec, vNewAngles);
 
-	static float vNewAnglesRef[3]; CopyVectors(vNewAngles, vNewAnglesRef);
-	static float vBounceVecRef[3]; CopyVectors(vBounceVec, vBounceVecRef);
+	float vNewAnglesRef[3]; CopyVectors(vNewAngles, vNewAnglesRef);
+	float vBounceVecRef[3];
+	CopyVectors(vBounceVec, vBounceVecRef);
 
 	Action aResult = Forward_OnRocketBouncePre(iIndex, iEntity, vNewAnglesRef, vBounceVecRef);
 	if (aResult == Plugin_Stop || aResult == Plugin_Handled)
@@ -367,7 +374,6 @@ public Action OnTouch(int iEntity, int iOther)
 
 	TeleportEntity(iEntity, NULL_VECTOR, vNewAngles, vBounceVec);
 	g_iRocketBounces[iIndex]++;
-
 	if (g_iRocketFlags[iIndex] & RocketFlag_NoBounceDrags)
 	{
 		Internal_SetRocketState(iIndex, (g_iRocketState[iIndex] & ~RocketState_CanDrag));
@@ -379,7 +385,7 @@ public Action OnTouch(int iEntity, int iOther)
 	}
 	else
 	{
-		static float fDirection[3];
+		float fDirection[3];
 		GetAngleVectors(vNewAngles,fDirection,NULL_VECTOR,NULL_VECTOR);
 		CopyVectors(fDirection, g_fRocketDirection[iIndex]);
 	}
@@ -406,7 +412,7 @@ public Action OnTFExplosion(const char[] strTEName, const int[] iClients, int iN
 
 	TE_Start("TFExplosion");
 
-	static float vecNormal[3]; TE_ReadVector("m_vecNormal", vecNormal);
+	float vecNormal[3]; TE_ReadVector("m_vecNormal", vecNormal);
 	TE_WriteFloat("m_vecOrigin[0]", TE_ReadFloat("m_vecOrigin[0]"));
 	TE_WriteFloat("m_vecOrigin[1]", TE_ReadFloat("m_vecOrigin[1]"));
 	TE_WriteFloat("m_vecOrigin[2]", TE_ReadFloat("m_vecOrigin[2]"));

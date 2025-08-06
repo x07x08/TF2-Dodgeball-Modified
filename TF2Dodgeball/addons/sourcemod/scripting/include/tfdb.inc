@@ -248,7 +248,6 @@ native void TFDB_DestroySpawners();
 native void TFDB_ParseConfigurations(const char[] strConfigFile = "general.cfg");
 native void TFDB_PopulateSpawnPoints();
 native void TFDB_HomingRocketThink(int iIndex);
-native void TFDB_RocketOtherThink(int iIndex);
 native void TFDB_RocketLegacyThink(int iIndex);
 native RocketState TFDB_GetRocketState(int iIndex);
 native void TFDB_SetRocketState(int iIndex, RocketState iState);
@@ -409,7 +408,6 @@ public void __pl_TFDB_SetNTVOptional()
 	MarkNativeAsOptional("TFDB_ParseConfigurations");
 	MarkNativeAsOptional("TFDB_PopulateSpawnPoints");
 	MarkNativeAsOptional("TFDB_HomingRocketThink");
-	MarkNativeAsOptional("TFDB_RocketOtherThink");
 	MarkNativeAsOptional("TFDB_RocketLegacyThink");
 	MarkNativeAsOptional("TFDB_GetRocketState");
 	MarkNativeAsOptional("TFDB_SetRocketState");

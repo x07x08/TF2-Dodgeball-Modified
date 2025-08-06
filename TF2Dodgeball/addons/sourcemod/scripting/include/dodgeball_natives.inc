@@ -772,12 +772,6 @@ public any Native_HomingRocketThink(Handle hPlugin, int iNumParams) {
 	return 0;
 }
 
-public any Native_RocketOtherThink(Handle hPlugin, int iNumParams) {
-	// This function is deprecated and its logic has been merged into HomingRocketThink and RocketLegacyThink.
-	// It is kept for API compatibility but does nothing.
-	return 0;
-}
-
 public any Native_RocketLegacyThink(Handle hPlugin, int iNumParams) {
 	RocketLegacyThink(GetNativeCell(1));
 	return 0;

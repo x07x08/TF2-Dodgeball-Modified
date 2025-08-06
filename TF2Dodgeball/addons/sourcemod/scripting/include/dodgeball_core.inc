@@ -37,6 +37,7 @@ void EnableDodgeBall()
 	HookEvent("teamplay_broadcast_audio", OnBroadcastAudio, EventHookMode_Pre);
 	HookEvent("object_deflected", OnObjectDeflected);
 
+
 	AddMultiTargetFilter("@stealer", MLTargetFilterStealer, "last stealer", false);
 	AddMultiTargetFilter("@!stealer", MLTargetFilterStealer, "non last stealer", false);
 
@@ -103,6 +104,7 @@ void DisableDodgeBall()
 	UnhookEvent("teamplay_broadcast_audio", OnBroadcastAudio, EventHookMode_Pre);
 	UnhookEvent("object_deflected", OnObjectDeflected);
 
+
 	RemoveMultiTargetFilter("@stealer", MLTargetFilterStealer);
 	RemoveMultiTargetFilter("@!stealer", MLTargetFilterStealer);
 
@@ -114,10 +116,16 @@ void DisableDodgeBall()
 	g_iRoundCount   = 0;
 }
 
+/**
+ * This is the main 20Hz timer for the gamemode.
+ * It handles rocket spawning and the logic for "legacy homing" rockets.
+ * It also calls shared logic functions like sound updates.
+ */
 public Action OnDodgeBallGameFrame(Handle hTimer, any Data)
 {
 	if (!BothTeamsPlaying()) return Plugin_Continue;
 
+	// Rocket Spawning Logic
 	if (GetGameTime() >= g_fNextSpawnTime)
 	{
 		if (g_iLastDeadTeam == view_as<int>(TFTeam_Red))
@@ -144,18 +152,21 @@ public Action OnDodgeBallGameFrame(Handle hTimer, any Data)
 		}
 	}
 
+	// Rocket Think Logic
 	int iIndex = -1;
 	while ((iIndex = FindNextValidRocket(iIndex)) != -1)
 	{
+        // This timer handles legacy homing rockets and shared logic for all rockets.
 		switch (g_iRocketClassBehaviour[g_iRocketClass[iIndex]])
 		{
-			case Behaviour_Unknown :      {}
-			case Behaviour_Homing :       { RocketOtherThink(iIndex); }
-			case Behaviour_LegacyHoming : { RocketLegacyThink(iIndex); }
+			case Behaviour_LegacyHoming:
+			{
+				RocketLegacyThink(iIndex);
+			}
 		}
+        // Shared logic (sounds, delays) is called for all rockets from here.
+        SharedRocketThink(iIndex);
 	}
 
 	return Plugin_Continue;
-
 }
-
