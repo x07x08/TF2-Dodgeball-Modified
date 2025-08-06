@@ -48,10 +48,10 @@ ConVar g_hCvarDelayPreventionSpeedup;
 ConVar g_hCvarNoTargetRedirectDamage;
 ConVar g_hCvarStealMessage;
 ConVar g_hCvarDelayMessage;
-ConVar g_hCvarStealTauntCheck;
-ConVar g_hCvarStealTauntDistance;
-ConVar g_hCvarStealTauntCooldown;
-ConVar g_hCvarStealTauntMaxTime;
+// New CVar for bounce mechanic
+ConVar g_hCvarBounceForceAngle;
+ConVar g_hCvarBounceForceScale;
+
 
 // -----<<< Gameplay >>>-----
 bool   g_bEnabled;
@@ -67,9 +67,6 @@ float  g_fTickModifier;
 int    g_iLastStealer;
 
 eRocketSteal g_eStealInfo[MAXPLAYERS + 1];
-
-float g_fPlayerTauntStartTime[MAXPLAYERS + 1];
-float g_fLastTauntBlockTime[MAXPLAYERS + 1];
 
 // -----<<< Configuration >>>-----
 bool g_bMusicEnabled;
@@ -209,10 +206,9 @@ public void OnPluginStart()
 	g_hCvarNoTargetRedirectDamage = CreateConVar("tf_dodgeball_redirect_damage", "1", "Reduce all damage when a rocket has an invalid target?", _, true, 0.0, true, 1.0);
 	g_hCvarStealMessage = CreateConVar("tf_dodgeball_sp_message", "1", "Display the steal message(s)?", _, true, 0.0, true, 1.0);
 	g_hCvarDelayMessage = CreateConVar("tf_dodgeball_dp_message", "1", "Display the delay message(s)?", _, true, 0.0, true, 1.0);
-	g_hCvarStealTauntCheck = CreateConVar("tf_dodgeball_sp_tauntcheck", "1", "Enable checking if a teammate is taunting to prevent a steal?", _, true, 0.0, true, 1.0);
-	g_hCvarStealTauntDistance = CreateConVar("tf_dodgeball_sp_taunt_distance", "128.0", "How close a taunting player must be to the rocket's target to block a steal.", _, true, 0.0);
-	g_hCvarStealTauntCooldown = CreateConVar("tf_dodgeball_sp_taunt_cooldown", "2.0", "How many seconds before a player's taunt can block a steal again.", _, true, 0.0);
-	g_hCvarStealTauntMaxTime = CreateConVar("tf_dodgeball_sp_taunt_maxtime", "5.0", "Max duration (in seconds) a single taunt can block steals before it expires.", _, true, 0.0);
+    g_hCvarBounceForceAngle = CreateConVar("tf_dodgeball_bounce_force_angle", "45.0", "Minimum downward angle (pitch) for a player to trigger a forced bounce.", _, true, 0.0, true, 90.0);
+    g_hCvarBounceForceScale = CreateConVar("tf_dodgeball_bounce_force_scale", "1.5", "How much stronger a player-forced bounce is. (Multiplier)", _, true, 1.0);
+
 
 	g_hSpawnersTrie = new StringMap();
 	g_fTickModifier = 0.1 / GetTickInterval();
@@ -363,7 +359,6 @@ public APLRes AskPluginLoad2(Handle hMyself, bool bLate, char[] strError, int iE
 	CreateNative("TFDB_ParseConfigurations", Native_ParseConfigurations);
 	CreateNative("TFDB_PopulateSpawnPoints", Native_PopulateSpawnPoints);
 	CreateNative("TFDB_HomingRocketThink", Native_HomingRocketThink);
-	CreateNative("TFDB_RocketOtherThink", Native_RocketOtherThink);
 	CreateNative("TFDB_RocketLegacyThink", Native_RocketLegacyThink);
 	CreateNative("TFDB_GetRocketState", Native_GetRocketState);
 	CreateNative("TFDB_SetRocketState", Native_SetRocketState);
